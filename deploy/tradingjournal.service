@@ -6,11 +6,11 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=pi
-WorkingDirectory=/home/pi/tradingjournal
+WorkingDirectory=/home/pi/TradingJournal
 Environment=HOST=0.0.0.0
-Environment=PORT=3000
+Environment=PORT=3251
 # Database + default image folder; point this at an external drive if needed:
-Environment=TJ_DATA_DIR=/home/pi/tradingjournal-data
+Environment=TJ_DATA_DIR=/mnt/nas-storage/Raphael/Tradingsetups/TradingJournalData
 ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning server/index.js
 Restart=on-failure
 RestartSec=3
