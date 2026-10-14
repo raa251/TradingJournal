@@ -22,7 +22,13 @@ const api = {
   put: (p, b) => api.req('PUT', p, b),
   del: (p) => api.req('DELETE', p),
 
-  listTrades: (from, to) => api.get(`/api/trades?${new URLSearchParams({ from, to })}`),
+  listTrades: (from, to) => {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    const qs = params.toString();
+    return api.get(`/api/trades${qs ? `?${qs}` : ''}`);
+  },
   getTrade: (id) => api.get(`/api/trades/${id}`),
   createTrade: (t) => api.post('/api/trades', t),
   updateTrade: (id, t) => api.put(`/api/trades/${id}`, t),
@@ -568,7 +574,7 @@ async function openTradeForm(id, presetDate) {
     const pending = pendingImages.map((p, i) => p.uploading
       ? `<div class="img-thumb uploading">Uploading…</div>`
       : `<div class="img-thumb" data-pending="${i}"><img src="${p.url}" alt=""></div>`).join('');
-    grid.innerHTML = saved + pending + `<label class="upload-btn" for="fileInput">+<input type="file" id="fileInput" accept="image/*" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden"></label>`;
+    grid.innerHTML = saved + pending + `<label class="upload-btn"><span aria-hidden="true">+</span><span class="visually-hidden">Add screenshots</span><input type="file" id="fileInput" class="visually-hidden" accept="image/*" multiple></label>`;
     grid.querySelector('#fileInput').addEventListener('change', onFilesSelected);
     grid.querySelectorAll('[data-rm-img]').forEach((b) => b.onclick = async () => {
       const imgId = Number(b.dataset.rmImg);

@@ -176,6 +176,10 @@ textarea { resize: vertical; min-height: 70px; }
   background: var(--surface-2); color: var(--muted); cursor: pointer; font-size: 1.5rem;
   display: flex; align-items: center; justify-content: center;
 }
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
 .sheet-actions { display: flex; gap: 10px; margin-top: 16px; }
 .sheet-actions .btn { flex: 1; }
 .error-msg { color: var(--danger); font-size: 0.85rem; margin-top: 8px; min-height: 1.1em; }
