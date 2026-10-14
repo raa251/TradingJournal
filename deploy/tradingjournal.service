@@ -9,7 +9,7 @@ User=pi
 WorkingDirectory=/home/pi/tradingjournal
 Environment=HOST=0.0.0.0
 Environment=PORT=3000
-# Datenbank + Standard-Bilderordner; bei Bedarf auf eine externe Festplatte zeigen:
+# Database + default image folder; point this at an external drive if needed:
 Environment=TJ_DATA_DIR=/home/pi/tradingjournal-data
 ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning server/index.js
 Restart=on-failure

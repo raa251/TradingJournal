@@ -1,41 +1,40 @@
 # Trading Journal
 
-Eine selbst gehostete Trading-Journal-PWA: Kalenderansicht, Trades erfassen,
-Setup-Bilder anhängen – von Laptop und Smartphone aus nutzbar.
+A self-hosted trading journal PWA: calendar view, log individual trades,
+attach setup screenshots - usable from both laptop and phone.
 
-- **Kein Build-Schritt, keine Abhängigkeiten.** Reines `node:http` + das in
-  Node eingebaute `node:sqlite`. Braucht nur Node **≥ 22.5**.
-- **PWA**: installierbar auf dem Smartphone-Homescreen, App-Shell wird per
-  Service Worker gecacht. Die Daten selbst (Trades, Bilder) kommen immer
-  live vom Server – ein Offline-Datenspeicher ist bewusst nicht eingebaut,
-  da es sich um ein Server-gestütztes Journal mit wählbarem Bilderpfad
-  handelt.
-- **Bilder-Speicherort frei wählbar**: unter *Einstellungen → Speicherort*
-  lässt sich ein beliebiger, auf dem Server erreichbarer Ordner (z. B. eine
-  angeschlossene Festplatte oder ein Nextcloud-Datenordner) als aktiver
-  Speicherort für neue Setup-Bilder setzen. Der Server erkennt angeschlossene
-  Laufwerke automatisch als Vorschlag.
+- **No build step, no dependencies.** Plain `node:http` plus Node's built-in
+  `node:sqlite`. Only needs Node **>= 22.5**.
+- **PWA**: installable on a phone's home screen, app shell is cached via a
+  service worker. The data itself (trades, images) always comes live from
+  the server - an offline data store is deliberately not built in, since
+  this is a server-backed journal with a selectable image path.
+- **Freely choosable image storage location**: under *Settings -> Storage
+  location* you can point new setup screenshots at any folder reachable by
+  the server (e.g. an attached drive or a Nextcloud data folder) as the
+  active location. The server automatically detects attached drives as
+  suggestions.
 
-## Lokal starten (zum Testen)
+## Run locally (for testing)
 
 ```bash
 npm start
-# oder mit Autoreload während der Entwicklung:
+# or with autoreload during development:
 npm run dev
 ```
 
-Standardmäßig läuft die App nur lokal unter <http://localhost:3000>, ohne
-Login (siehe Hinweis unten). Daten landen in `./data/` (SQLite-Datei +
-Standard-Bilderordner), das ist in `.gitignore` ausgeschlossen.
+By default the app only listens locally at <http://localhost:3000>, with
+no login (see the note below). Data lands in `./data/` (SQLite file +
+default image folder), which is excluded via `.gitignore`.
 
-Umgebungsvariablen (optional):
+Environment variables (optional):
 
-| Variable            | Zweck                                                    | Default        |
-|---------------------|-----------------------------------------------------------|----------------|
-| `PORT`               | Port                                                      | `3000`         |
-| `HOST`               | Bind-Adresse. `0.0.0.0` für Zugriff aus dem Netz/Tailscale | `127.0.0.1`    |
-| `TJ_DATA_DIR`        | Ordner für DB + Standard-Bilder                           | `./data`       |
-| `TJ_ALLOWED_HOSTS`   | Zusätzliche erlaubte Hostnamen, kommagetrennt              | *(leer)*       |
+| Variable            | Purpose                                                   | Default        |
+|---------------------|------------------------------------------------------------|----------------|
+| `PORT`               | Port                                                       | `3000`         |
+| `HOST`               | Bind address. `0.0.0.0` for access from the network/Tailscale | `127.0.0.1`    |
+| `TJ_DATA_DIR`        | Folder for the DB + default images                         | `./data`       |
+| `TJ_ALLOWED_HOSTS`   | Additional allowed hostnames, comma-separated               | *(empty)*      |
 
 ## Tests
 
@@ -43,44 +42,43 @@ Umgebungsvariablen (optional):
 npm test
 ```
 
-## Betrieb auf dem Raspberry Pi (neben Nextcloud, per Tailscale)
+## Running on a Raspberry Pi (alongside Nextcloud, over Tailscale)
 
-1. Repo auf den Pi klonen (Node ≥ 22.5 muss installiert sein):
+1. Clone the repo onto the Pi (Node >= 22.5 must be installed):
    ```bash
    git clone <repo-url> ~/tradingjournal
    cd ~/tradingjournal
    ```
-2. Datenordner wählen – entweder lokal auf der SD-Karte/SSD des Pi, oder ein
-   extra angeschlossenes Laufwerk, z. B. `/mnt/usb/tradingjournal-data`.
-3. `deploy/tradingjournal.service` nach `/etc/systemd/system/` kopieren,
-   Pfade/Variablen anpassen, dann:
+2. Pick a data folder - either local on the Pi's SD card/SSD, or an extra
+   attached drive, e.g. `/mnt/usb/tradingjournal-data`.
+3. Copy `deploy/tradingjournal.service` to `/etc/systemd/system/`, adjust
+   the paths/variables, then:
    ```bash
    sudo systemctl daemon-reload
    sudo systemctl enable --now tradingjournal
    ```
-4. Der Dienst lauscht per `HOST=0.0.0.0` im gesamten (Tailscale-)Netz. Von
-   Laptop/Smartphone aus über die Tailscale-IP oder den MagicDNS-Namen des
-   Pi aufrufen, z. B. `http://raspberrypi.<dein-tailnet>.ts.net:3000`.
-5. Auf dem Smartphone die Seite öffnen und über „Zum Startbildschirm
-   hinzufügen“ (iOS) bzw. den Installieren-Button (Android/Chrome) als App
-   installieren.
-6. Unter *Einstellungen → Bilder-Speicherort* kann anschließend z. B. der
-   Nextcloud-Datenordner (oder eine externe Platte) als Speicherort für
-   Setup-Bilder gesetzt werden, damit sie z. B. automatisch mitgesichert
-   werden.
+4. The service listens on the whole (Tailscale) network via `HOST=0.0.0.0`.
+   Open it from your laptop/phone via the Pi's Tailscale IP or MagicDNS
+   name, e.g. `http://raspberrypi.<your-tailnet>.ts.net:3000`.
+5. On your phone, open the page and install it as an app via "Add to Home
+   Screen" (iOS) or the install button (Android/Chrome).
+6. Under *Settings -> Image storage location* you can then set, for
+   example, your Nextcloud data folder (or an external drive) as the
+   storage location for setup screenshots, so they get backed up
+   automatically along with the rest of Nextcloud.
 
-**Sicherheitshinweis:** Die App hat aktuell **keinen Login**. Das ist für den
-Betrieb ausschließlich im eigenen, per Tailscale abgeschotteten Netz gedacht.
-Server niemals direkt mit `HOST=0.0.0.0` ins offene Internet/Portforwarding
-stellen, ohne vorher eine Authentifizierung (z. B. per Tailscale Serve/Funnel
-mit Zugriffsbeschränkung, oder einen Reverse Proxy mit Basic Auth) davorzusetzen.
+**Security note:** The app currently has **no login**. It is meant to run
+only inside your own network, locked down via Tailscale. Never expose the
+server directly to the open internet/port-forwarding with `HOST=0.0.0.0`
+without putting authentication in front of it first (e.g. Tailscale
+Serve/Funnel with access restrictions, or a reverse proxy with basic auth).
 
-## Datenmodell
+## Data model
 
-- **Trade**: Datum, Uhrzeit, Symbol, Richtung (Long/Short), Einstieg,
-  Ausstieg, Stop-Loss, Take-Profit, Größe, Gebühren, Ergebnis (P&L), Setup,
-  Bewertung (1–5 Sterne), Notizen, Nachbetrachtung – plus beliebig viele
-  Bilder.
-- **Bild**: pro Trade mehrere, Dateiname/Pfad in der DB, tatsächliche Datei
-  im gewählten Speicherort unter `JAHR/MONAT/…`.
-- **Export**: *Statistik → Alle Trades als JSON exportieren*.
+- **Trade**: date, time, symbol, direction (long/short), entry, exit,
+  stop-loss, take-profit, size, fees, result (P&L), setup, rating
+  (1-5 stars), notes, review - plus any number of images. Only date,
+  direction, symbol and result are required; everything else is optional.
+- **Image**: multiple per trade, filename/path stored in the DB, the
+  actual file lives in the chosen storage location under `YEAR/MONTH/...`.
+- **Export**: *Stats -> Export all trades as JSON*.
