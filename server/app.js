@@ -173,8 +173,11 @@ route('POST', /^\/api\/trades\/(\d+)\/images$/, async (req, res, m) => {
     buffer,
     tradeId: trade.id,
     tradeDate: trade.date,
+    tradeTime: trade.time,
     symbol: trade.symbol,
-  });
+    pnl: trade.pnl,
+    imageNumber: trade.images.length + 1,
+});
   let originalName = null;
   try {
     originalName = decodeURIComponent(String(req.headers['x-filename'] || '')).slice(0, 200) || null;

@@ -191,29 +191,77 @@ export function resolveInside(root, relative) {
   return abs;
 }
 
-export async function saveImage({ buffer, tradeId, tradeDate, symbol }) {
+
+export async function saveImage({
+  buffer,
+  tradeId,
+  tradeDate,
+  tradeTime,
+  symbol,
+  pnl,
+  imageNumber,
+}) {
   const kind = sniffImage(buffer);
-  if (!kind) throw new HttpError(415, 'Only PNG, JPEG, WebP, GIF or AVIF are supported.');
+  if (!kind) {
+    throw new HttpError(415, 'Only PNG, JPEG, WebP, GIF or AVIF are supported.');
+  }
 
   const loc = activeLocation();
   if (!(await isDirectory(loc.path))) {
-    throw new HttpError(503, `Storage location “${loc.name}” is unavailable. Is the drive connected?`);
+    throw new HttpError(
+      503,
+      `Storage location "${loc.name}" is unavailable. Is the drive connected?`,
+    );
   }
 
-  const [year, month] = tradeDate.split('-');
+  const [year, month, day] = tradeDate.split('-');
   const safeSymbol = symbol.replace(/[^A-Za-z0-9_-]+/g, '') || 'trade';
-  const rand = crypto.randomBytes(3).toString('hex');
-  const filename = `${year}/${month}/${tradeDate}_${safeSymbol}_T${tradeId}_${rand}.${kind.ext}`;
-  const abs = resolveInside(loc.path, filename);
+
+  // Use the trade time; fall back to the current server time if missing.
+  const rawTime = tradeTime || new Date().toTimeString().slice(0, 5);
+  const safeTime = rawTime.replace(':', '');
+
+  // Positive P&L = Win; zero or negative P&L = Loss.
+  const result = pnl > 0 ? 'Win' : 'Loss';
+
+  // Find an unused image number to avoid overwriting existing files.
+  let imageNo = Math.max(1, Number(imageNumber) || 1);
+  let filename;
+  let abs;
+
+  while (true) {
+    filename =
+      `${year}/${month}/` +
+      `${year}_${month}_${day}_${safeTime}_${safeSymbol}_${result}_${imageNo}.${kind.ext}`;
+
+    abs = resolveInside(loc.path, filename);
+
+    try {
+      await fs.access(abs);
+      imageNo++;
+    } catch {
+      break;
+    }
+  }
 
   try {
     await fs.mkdir(path.dirname(abs), { recursive: true });
     await fs.writeFile(abs, buffer, { flag: 'wx' });
   } catch (err) {
-    throw new HttpError(507, `Image could not be saved (${err.code || err.message}).`);
+    throw new HttpError(
+      507,
+      `Image could not be saved (${err.code || err.message}).`,
+    );
   }
-  return { storageDir: loc.path, filename, mime: kind.mime, size: buffer.length };
+
+  return {
+    storageDir: loc.path,
+    filename,
+    mime: kind.mime,
+    size: buffer.length,
+  };
 }
+
 
 export async function removeImageFile(row) {
   try {
