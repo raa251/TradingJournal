@@ -70,7 +70,16 @@ test('rejects invalid trade payloads', async () => {
   const res = await fetch(`${base}/api/trades`, {
     method: 'POST',
     headers: writeHeaders,
-    body: JSON.stringify({ date: 'not-a-date', symbol: 'X', direction: 'long' }),
+    body: JSON.stringify({ date: 'not-a-date', symbol: 'X', direction: 'long', pnl: 0 }),
+  });
+  assert.equal(res.status, 400);
+});
+
+test('requires a result (pnl) even though other fields are optional', async () => {
+  const res = await fetch(`${base}/api/trades`, {
+    method: 'POST',
+    headers: writeHeaders,
+    body: JSON.stringify({ date: '2026-03-01', symbol: 'AAPL', direction: 'long' }),
   });
   assert.equal(res.status, 400);
 });
@@ -79,7 +88,7 @@ test('uploads an image for a trade and serves it back', async () => {
   const trade = await (await fetch(`${base}/api/trades`, {
     method: 'POST',
     headers: writeHeaders,
-    body: JSON.stringify({ date: '2026-02-01', symbol: 'GBPUSD', direction: 'long' }),
+    body: JSON.stringify({ date: '2026-02-01', symbol: 'GBPUSD', direction: 'long', pnl: 0 }),
   })).json();
 
   // 1x1 PNG
@@ -108,7 +117,7 @@ test('rejects non-image uploads', async () => {
   const trade = await (await fetch(`${base}/api/trades`, {
     method: 'POST',
     headers: writeHeaders,
-    body: JSON.stringify({ date: '2026-02-02', symbol: 'GBPUSD', direction: 'long' }),
+    body: JSON.stringify({ date: '2026-02-02', symbol: 'GBPUSD', direction: 'long', pnl: 0 }),
   })).json();
   const res = await fetch(`${base}/api/trades/${trade.id}/images`, {
     method: 'POST',

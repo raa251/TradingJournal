@@ -5,10 +5,10 @@ const server = createApp();
 
 server.listen(config.port, config.host, () => {
   const { port } = server.address();
-  console.log(`Trading Journal läuft auf http://${config.host}:${port}`);
-  console.log(`Daten: ${config.dataDir}`);
+  console.log(`Trading Journal running at http://${config.host}:${port}`);
+  console.log(`Data: ${config.dataDir}`);
   if (config.host === '0.0.0.0' || config.host === '::') {
-    console.log('Hinweis: Der Server ist im gesamten Netzwerk erreichbar und hat keinen Login.');
+    console.log('Note: the server is reachable from the whole network and has no login.');
   }
 });
 

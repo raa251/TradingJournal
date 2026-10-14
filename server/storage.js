@@ -15,7 +15,7 @@ export class HttpError extends Error {
 const DEFAULT_ID = 'default';
 const defaultLocation = () => ({
   id: DEFAULT_ID,
-  name: 'Standard (Datenordner auf dem Server)',
+  name: 'Default (server data folder)',
   path: path.join(config.dataDir, 'images'),
 });
 
@@ -38,7 +38,7 @@ export function activeLocation() {
   return allLocations().find((l) => l.id === id) ?? defaultLocation();
 }
 
-/** Prüft, ob in das Verzeichnis geschrieben werden kann. Legt es bei Bedarf an. */
+/** Checks that the directory is writable, creating it if needed. */
 async function assertWritable(dir) {
   try {
     await fs.mkdir(dir, { recursive: true });
@@ -46,11 +46,11 @@ async function assertWritable(dir) {
     await fs.writeFile(probe, 'ok');
     await fs.unlink(probe);
   } catch (err) {
-    throw new HttpError(400, `Ordner ist nicht beschreibbar: ${err.code || err.message}`);
+    throw new HttpError(400, `Folder is not writable: ${err.code || err.message}`);
   }
 }
 
-/** Freien/gesamten Platz ermitteln; bei noch nicht existierendem Ordner den nächsten vorhandenen Elternordner nutzen. */
+/** Determines free/total space; for a not-yet-existing folder, uses the nearest existing parent folder. */
 async function diskSpace(dir) {
   let probe = dir;
   for (let i = 0; i < 10; i++) {
@@ -92,7 +92,7 @@ const PSEUDO_FS = new Set([
   'squashfs', 'autofs', 'mqueue', 'securityfs', 'debugfs', 'tracefs', 'fusectl', 'configfs',
 ]);
 
-/** Erkennt angeschlossene Laufwerke als Vorschläge für den Bilder-Speicherort. */
+/** Detects attached drives as suggestions for the image storage location. */
 export async function detectDrives() {
   const found = [];
   const suggest = async (name, mountPoint) => {
@@ -105,7 +105,7 @@ export async function detectDrives() {
       for (let c = 65; c <= 90; c++) {
         const letter = String.fromCharCode(c);
         const root = `${letter}:\\`;
-        if (fsSync.existsSync(root)) await suggest(`Laufwerk ${letter}:`, root);
+        if (fsSync.existsSync(root)) await suggest(`Drive ${letter}:`, root);
       }
     } else if (process.platform === 'darwin') {
       for (const entry of await fs.readdir('/Volumes')) await suggest(entry, path.join('/Volumes', entry));
@@ -121,7 +121,7 @@ export async function detectDrives() {
       }
     }
   } catch {
-    // Erkennung ist optional – ein Pfad kann immer manuell eingegeben werden.
+    // Detection is optional - a path can always be entered manually.
   }
 
   const known = new Set(allLocations().map((l) => path.resolve(l.path)));
@@ -132,11 +132,11 @@ export async function addLocation(name, dirPath, activate) {
   const cleanName = String(name || '').trim().slice(0, 60);
   const raw = String(dirPath || '').trim();
   if (!raw || !path.isAbsolute(raw)) {
-    throw new HttpError(400, 'Bitte einen absoluten Pfad angeben, z. B. D:\\Trading\\Bilder oder /mnt/usb/Trading');
+    throw new HttpError(400, 'Please enter an absolute path, e.g. D:\\Trading\\Images or /mnt/usb/Trading');
   }
   const resolved = path.resolve(raw);
   if (allLocations().some((l) => path.resolve(l.path) === resolved)) {
-    throw new HttpError(409, 'Dieser Speicherort ist bereits vorhanden.');
+    throw new HttpError(409, 'This storage location already exists.');
   }
   await assertWritable(resolved);
   const loc = {
@@ -151,23 +151,23 @@ export async function addLocation(name, dirPath, activate) {
 
 export async function setActive(id) {
   const loc = allLocations().find((l) => l.id === id);
-  if (!loc) throw new HttpError(404, 'Speicherort nicht gefunden.');
+  if (!loc) throw new HttpError(404, 'Storage location not found.');
   if (loc.id !== DEFAULT_ID && !(await isDirectory(loc.path))) {
-    throw new HttpError(409, 'Das Laufwerk bzw. der Ordner ist gerade nicht verfügbar.');
+    throw new HttpError(409, 'The drive or folder is currently unavailable.');
   }
   await assertWritable(loc.path);
   db.setSetting('storage_active', loc.id);
 }
 
 export function removeLocation(id) {
-  if (id === DEFAULT_ID) throw new HttpError(400, 'Der Standard-Speicherort kann nicht entfernt werden.');
+  if (id === DEFAULT_ID) throw new HttpError(400, 'The default storage location cannot be removed.');
   const list = customLocations();
-  if (!list.some((l) => l.id === id)) throw new HttpError(404, 'Speicherort nicht gefunden.');
+  if (!list.some((l) => l.id === id)) throw new HttpError(404, 'Storage location not found.');
   db.setSetting('storage_locations', JSON.stringify(list.filter((l) => l.id !== id)));
   if (db.getSetting('storage_active') === id) db.setSetting('storage_active', DEFAULT_ID);
 }
 
-/** Erkennt das Bildformat an den ersten Bytes – dem Client-Mime-Type wird nicht vertraut. */
+/** Detects the image format from the first bytes - the client-supplied MIME type is not trusted. */
 export function sniffImage(buf) {
   if (buf.length < 12) return null;
   if (buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
@@ -183,21 +183,21 @@ export function sniffImage(buf) {
   return null;
 }
 
-/** Löst einen relativen Dateinamen innerhalb des Speicherorts auf und verhindert Pfad-Ausbrüche. */
+/** Resolves a relative filename inside the storage location and prevents path traversal. */
 export function resolveInside(root, relative) {
   const abs = path.resolve(root, ...relative.split('/'));
   const rel = path.relative(root, abs);
-  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) throw new HttpError(400, 'Ungültiger Dateipfad.');
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) throw new HttpError(400, 'Invalid file path.');
   return abs;
 }
 
 export async function saveImage({ buffer, tradeId, tradeDate, symbol }) {
   const kind = sniffImage(buffer);
-  if (!kind) throw new HttpError(415, 'Nur PNG, JPEG, WebP, GIF oder AVIF werden unterstützt.');
+  if (!kind) throw new HttpError(415, 'Only PNG, JPEG, WebP, GIF or AVIF are supported.');
 
   const loc = activeLocation();
   if (!(await isDirectory(loc.path))) {
-    throw new HttpError(503, `Speicherort „${loc.name}“ ist nicht verfügbar. Ist das Laufwerk angeschlossen?`);
+    throw new HttpError(503, `Storage location “${loc.name}” is unavailable. Is the drive connected?`);
   }
 
   const [year, month] = tradeDate.split('-');
@@ -210,7 +210,7 @@ export async function saveImage({ buffer, tradeId, tradeDate, symbol }) {
     await fs.mkdir(path.dirname(abs), { recursive: true });
     await fs.writeFile(abs, buffer, { flag: 'wx' });
   } catch (err) {
-    throw new HttpError(507, `Bild konnte nicht gespeichert werden (${err.code || err.message}).`);
+    throw new HttpError(507, `Image could not be saved (${err.code || err.message}).`);
   }
   return { storageDir: loc.path, filename, mime: kind.mime, size: buffer.length };
 }
@@ -219,6 +219,6 @@ export async function removeImageFile(row) {
   try {
     await fs.unlink(resolveInside(row.storage_dir, row.filename));
   } catch {
-    // Datei bereits weg oder Laufwerk nicht verbunden – Datenbankeintrag wird trotzdem entfernt.
+    // File already gone or drive not connected - the database entry is removed regardless.
   }
 }

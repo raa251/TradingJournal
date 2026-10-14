@@ -9,7 +9,7 @@ import { HttpError } from './storage.js';
 
 const CURRENCIES = ['EUR', 'USD', 'CHF', 'GBP', 'JPY', 'NONE'];
 
-/* ---------- Hilfsfunktionen ---------- */
+/* ---------- Helpers ---------- */
 
 function sendJson(res, status, data) {
   const body = JSON.stringify(data);
@@ -25,7 +25,7 @@ function readBody(req, limit) {
   return new Promise((resolve, reject) => {
     if (Number(req.headers['content-length'] || 0) > limit) {
       req.resume();
-      return reject(new HttpError(413, 'Die Datei ist zu groß.'));
+      return reject(new HttpError(413, 'The file is too large.'));
     }
     const chunks = [];
     let size = 0;
@@ -35,7 +35,7 @@ function readBody(req, limit) {
       if (size > limit) tooBig = true;
       else chunks.push(chunk);
     });
-    req.on('end', () => (tooBig ? reject(new HttpError(413, 'Die Datei ist zu groß.')) : resolve(Buffer.concat(chunks))));
+    req.on('end', () => (tooBig ? reject(new HttpError(413, 'The file is too large.')) : resolve(Buffer.concat(chunks))));
     req.on('error', reject);
   });
 }
@@ -45,7 +45,7 @@ async function readJson(req) {
   try {
     return buf.length ? JSON.parse(buf.toString('utf8')) : {};
   } catch {
-    throw new HttpError(400, 'Ungültiges JSON.');
+    throw new HttpError(400, 'Invalid JSON.');
   }
 }
 
@@ -53,45 +53,51 @@ function checkHost(req) {
   const raw = String(req.headers.host || '').toLowerCase();
   const host = raw.startsWith('[') ? raw.slice(1, raw.indexOf(']')) : raw.replace(/:\d+$/, '');
   const ok =
-    !host.includes('.') || // localhost, Rechnername, MagicDNS-Kurzname
+    !host.includes('.') || // localhost, hostname, MagicDNS short name
     net.isIP(host) !== 0 ||
     /\.(ts\.net|local|lan|home|internal)$/.test(host) ||
     config.allowedHosts.includes(host);
-  if (!ok) throw new HttpError(403, 'Hostname nicht erlaubt. Über TJ_ALLOWED_HOSTS freigeben.');
+  if (!ok) throw new HttpError(403, 'Hostname not allowed. Allow it via TJ_ALLOWED_HOSTS.');
 }
 
-/* ---------- Validierung ---------- */
+/* ---------- Validation ---------- */
 
 const optNum = (v, label) => {
   if (v === '' || v === null || v === undefined) return null;
   const n = typeof v === 'number' ? v : Number(String(v).replace(',', '.'));
-  if (!Number.isFinite(n)) throw new HttpError(400, `${label}: ungültige Zahl.`);
+  if (!Number.isFinite(n)) throw new HttpError(400, `${label}: invalid number.`);
   return n;
 };
 
 const optText = (v, max, label) => {
   const s = v === null || v === undefined ? '' : String(v).trim();
-  if (s.length > max) throw new HttpError(400, `${label}: maximal ${max} Zeichen.`);
+  if (s.length > max) throw new HttpError(400, `${label}: maximum ${max} characters.`);
   return s || null;
+};
+
+const requiredPnl = (v) => {
+  const n = optNum(v, 'Result');
+  if (n === null) throw new HttpError(400, 'Result is required.');
+  return n;
 };
 
 function parseTrade(body) {
   const date = String(body.date || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) {
-    throw new HttpError(400, 'Datum fehlt oder ist ungültig.');
+    throw new HttpError(400, 'Date is missing or invalid.');
   }
   const time = body.time ? String(body.time) : null;
-  if (time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new HttpError(400, 'Uhrzeit ist ungültig.');
+  if (time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new HttpError(400, 'Time is invalid.');
 
   const symbol = String(body.symbol || '').trim().toUpperCase();
-  if (!symbol) throw new HttpError(400, 'Bitte ein Symbol angeben.');
-  if (symbol.length > 40) throw new HttpError(400, 'Symbol ist zu lang.');
+  if (!symbol) throw new HttpError(400, 'Please enter a symbol.');
+  if (symbol.length > 40) throw new HttpError(400, 'Symbol is too long.');
 
-  if (!['long', 'short'].includes(body.direction)) throw new HttpError(400, 'Richtung muss Long oder Short sein.');
+  if (!['long', 'short'].includes(body.direction)) throw new HttpError(400, 'Direction must be long or short.');
 
-  let rating = optNum(body.rating, 'Bewertung');
+  let rating = optNum(body.rating, 'Rating');
   if (rating !== null && (!Number.isInteger(rating) || rating < 1 || rating > 5)) {
-    throw new HttpError(400, 'Bewertung muss zwischen 1 und 5 liegen.');
+    throw new HttpError(400, 'Rating must be between 1 and 5.');
   }
 
   return {
@@ -99,27 +105,27 @@ function parseTrade(body) {
     time,
     symbol,
     direction: body.direction,
-    entryPrice: optNum(body.entryPrice, 'Einstieg'),
-    exitPrice: optNum(body.exitPrice, 'Ausstieg'),
-    stopLoss: optNum(body.stopLoss, 'Stop-Loss'),
-    takeProfit: optNum(body.takeProfit, 'Take-Profit'),
-    size: optNum(body.size, 'Größe'),
-    fees: optNum(body.fees, 'Gebühren'),
-    pnl: optNum(body.pnl, 'Ergebnis'),
+    entryPrice: optNum(body.entryPrice, 'Entry'),
+    exitPrice: optNum(body.exitPrice, 'Exit'),
+    stopLoss: optNum(body.stopLoss, 'Stop-loss'),
+    takeProfit: optNum(body.takeProfit, 'Take-profit'),
+    size: optNum(body.size, 'Size'),
+    fees: optNum(body.fees, 'Fees'),
+    pnl: requiredPnl(body.pnl),
     setup: optText(body.setup, 80, 'Setup'),
     rating,
-    notes: optText(body.notes, 10000, 'Notizen'),
-    review: optText(body.review, 10000, 'Nachbetrachtung'),
+    notes: optText(body.notes, 10000, 'Notes'),
+    review: optText(body.review, 10000, 'Review'),
   };
 }
 
 const parseId = (s) => {
   const id = Number(s);
-  if (!Number.isInteger(id) || id < 1) throw new HttpError(400, 'Ungültige ID.');
+  if (!Number.isInteger(id) || id < 1) throw new HttpError(400, 'Invalid ID.');
   return id;
 };
 
-/* ---------- API-Routen ---------- */
+/* ---------- API routes ---------- */
 
 const routes = [];
 const route = (method, pattern, handler) => routes.push({ method, pattern, handler });
@@ -139,19 +145,19 @@ route('POST', /^\/api\/trades$/, async (req, res) => {
 
 route('GET', /^\/api\/trades\/(\d+)$/, async (req, res, m) => {
   const trade = db.getTrade(parseId(m[1]));
-  if (!trade) throw new HttpError(404, 'Trade nicht gefunden.');
+  if (!trade) throw new HttpError(404, 'Trade not found.');
   sendJson(res, 200, trade);
 });
 
 route('PUT', /^\/api\/trades\/(\d+)$/, async (req, res, m) => {
   const trade = db.updateTrade(parseId(m[1]), parseTrade(await readJson(req)));
-  if (!trade) throw new HttpError(404, 'Trade nicht gefunden.');
+  if (!trade) throw new HttpError(404, 'Trade not found.');
   sendJson(res, 200, trade);
 });
 
 route('DELETE', /^\/api\/trades\/(\d+)$/, async (req, res, m) => {
   const images = db.deleteTrade(parseId(m[1]));
-  if (!images) throw new HttpError(404, 'Trade nicht gefunden.');
+  if (!images) throw new HttpError(404, 'Trade not found.');
   await Promise.all(images.map(storage.removeImageFile));
   res.writeHead(204).end();
 });
@@ -160,7 +166,7 @@ route('POST', /^\/api\/trades\/(\d+)\/images$/, async (req, res, m) => {
   const trade = db.getTrade(parseId(m[1]));
   if (!trade) {
     req.resume();
-    throw new HttpError(404, 'Trade nicht gefunden.');
+    throw new HttpError(404, 'Trade not found.');
   }
   const buffer = await readBody(req, config.maxUploadBytes);
   const saved = await storage.saveImage({
@@ -173,7 +179,7 @@ route('POST', /^\/api\/trades\/(\d+)\/images$/, async (req, res, m) => {
   try {
     originalName = decodeURIComponent(String(req.headers['x-filename'] || '')).slice(0, 200) || null;
   } catch {
-    /* ungültig kodierter Name wird ignoriert */
+    /* invalidly encoded name is ignored */
   }
   const image = db.addImage({
     tradeId: trade.id,
@@ -188,13 +194,13 @@ route('POST', /^\/api\/trades\/(\d+)\/images$/, async (req, res, m) => {
 
 route('GET', /^\/api\/images\/(\d+)\/file$/, async (req, res, m) => {
   const row = db.getImageRow(parseId(m[1]));
-  if (!row) throw new HttpError(404, 'Bild nicht gefunden.');
+  if (!row) throw new HttpError(404, 'Image not found.');
   const abs = storage.resolveInside(row.storage_dir, row.filename);
   let stat;
   try {
     stat = await fs.promises.stat(abs);
   } catch {
-    throw new HttpError(404, 'Bilddatei nicht gefunden – ist das Laufwerk angeschlossen?');
+    throw new HttpError(404, 'Image file not found - is the drive connected?');
   }
   res.writeHead(200, {
     'Content-Type': row.mime,
@@ -206,7 +212,7 @@ route('GET', /^\/api\/images\/(\d+)\/file$/, async (req, res, m) => {
 
 route('DELETE', /^\/api\/images\/(\d+)$/, async (req, res, m) => {
   const row = db.deleteImageRow(parseId(m[1]));
-  if (!row) throw new HttpError(404, 'Bild nicht gefunden.');
+  if (!row) throw new HttpError(404, 'Image not found.');
   await storage.removeImageFile(row);
   res.writeHead(204).end();
 });
@@ -218,7 +224,7 @@ route('GET', /^\/api\/settings$/, async (req, res) => {
 route('PUT', /^\/api\/settings$/, async (req, res) => {
   const body = await readJson(req);
   if (body.currency !== undefined) {
-    if (!CURRENCIES.includes(body.currency)) throw new HttpError(400, 'Unbekannte Währung.');
+    if (!CURRENCIES.includes(body.currency)) throw new HttpError(400, 'Unknown currency.');
     db.setSetting('currency', body.currency);
   }
   sendJson(res, 200, { currency: db.getSetting('currency', 'EUR') });
@@ -268,20 +274,20 @@ route('GET', /^\/api\/export$/, async (req, res) => {
 });
 
 async function handleApi(req, res, url) {
-  // Schreibende Anfragen brauchen einen eigenen Header. Fremde Webseiten können ihn
-  // ohne CORS-Freigabe nicht setzen – das schützt vor CSRF.
+  // Write requests need a custom header. Other websites cannot set it without
+  // a CORS allowance - this protects against CSRF.
   if (!['GET', 'HEAD'].includes(req.method) && req.headers['x-tj'] !== '1') {
-    throw new HttpError(403, 'Anfrage abgelehnt.');
+    throw new HttpError(403, 'Request rejected.');
   }
   for (const r of routes) {
     if (r.method !== req.method) continue;
     const m = url.pathname.match(r.pattern);
     if (m) return r.handler(req, res, m, url);
   }
-  throw new HttpError(404, 'Unbekannter API-Pfad.');
+  throw new HttpError(404, 'Unknown API path.');
 }
 
-/* ---------- Statische Dateien ---------- */
+/* ---------- Static files ---------- */
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -295,12 +301,12 @@ const MIME = {
 };
 
 async function serveStatic(req, res, pathname) {
-  if (!['GET', 'HEAD'].includes(req.method)) throw new HttpError(405, 'Methode nicht erlaubt.');
+  if (!['GET', 'HEAD'].includes(req.method)) throw new HttpError(405, 'Method not allowed.');
   let rel;
   try {
     rel = decodeURIComponent(pathname);
   } catch {
-    throw new HttpError(400, 'Ungültiger Pfad.');
+    throw new HttpError(400, 'Invalid path.');
   }
   if (rel.endsWith('/')) rel += 'index.html';
   const abs = path.resolve(config.publicDir, `.${rel}`);
@@ -308,7 +314,7 @@ async function serveStatic(req, res, pathname) {
   let stat;
   try {
     stat = await fs.promises.stat(abs);
-    if (!stat.isFile()) throw new Error('keine Datei');
+    if (!stat.isFile()) throw new Error('not a file');
   } catch {
     throw new HttpError(404, 'Nicht gefunden.');
   }

@@ -144,7 +144,7 @@ export function updateTrade(id, t) {
   return info.changes ? getTrade(id) : null;
 }
 
-/** Löscht den Trade und gibt die Bild-Zeilen zurück, damit die Dateien entfernt werden können. */
+/** Deletes the trade and returns the image rows so the files can be removed. */
 export function deleteTrade(id) {
   const images = db.prepare('SELECT * FROM images WHERE trade_id = ?').all(id);
   const info = db.prepare('DELETE FROM trades WHERE id = ?').run(id);
