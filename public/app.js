@@ -1,6 +1,6 @@
-/* Trading Journal – PWA-Frontend. Kein Framework, keine Build-Schritte. */
+/* Trading Journal – PWA frontend. No framework, no build step. */
 
-/* ---------- API-Client ---------- */
+/* ---------- API client ---------- */
 
 const api = {
   async req(method, path, body) {
@@ -14,7 +14,7 @@ const api = {
     if (res.status === 204) return null;
     const isJson = (res.headers.get('content-type') || '').includes('application/json');
     const data = isJson ? await res.json().catch(() => null) : null;
-    if (!res.ok) throw new Error((data && data.error) || `Fehler ${res.status}`);
+    if (!res.ok) throw new Error((data && data.error) || `Error ${res.status}`);
     return data;
   },
   get: (p) => api.req('GET', p),
@@ -33,12 +33,12 @@ const api = {
       headers: {
         'X-TJ': '1',
         'Content-Type': file.type || 'application/octet-stream',
-        'X-Filename': encodeURIComponent(file.name || 'bild'),
+        'X-Filename': encodeURIComponent(file.name || 'image'),
       },
       body: file,
     });
     const data = await res.json().catch(() => null);
-    if (!res.ok) throw new Error((data && data.error) || `Fehler ${res.status}`);
+    if (!res.ok) throw new Error((data && data.error) || `Error ${res.status}`);
     return data;
   },
   deleteImage: (id) => api.del(`/api/images/${id}`),
@@ -50,7 +50,7 @@ const api = {
   removeLocation: (id) => api.del(`/api/storage/locations/${id}`),
 };
 
-/* ---------- Status / Helfer ---------- */
+/* ---------- State / helpers ---------- */
 
 const state = {
   view: 'calendar',
@@ -76,8 +76,8 @@ const CUR_SYMBOL = { EUR: '€', USD: '$', CHF: 'CHF', GBP: '£', JPY: '¥', NON
 function fmtMoney(n) {
   if (n === null || n === undefined || Number.isNaN(n)) return '–';
   const sym = CUR_SYMBOL[state.currency] ?? '';
-  const s = n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return state.currency === 'NONE' ? s : `${n >= 0 ? '' : ''}${s} ${sym}`.trim();
+  const s = n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return state.currency === 'NONE' ? s : `${s} ${sym}`.trim();
 }
 function pnlClass(n) { return n > 0 ? 'pnl-pos' : n < 0 ? 'pnl-neg' : ''; }
 function escapeHtml(s) {
@@ -96,7 +96,7 @@ function el(html) {
   return t.content.firstElementChild;
 }
 
-/* ---------- Routing / Tabs ---------- */
+/* ---------- Routing / tabs ---------- */
 
 document.querySelectorAll('.tab').forEach((btn) => {
   btn.addEventListener('click', () => setView(btn.dataset.view));
@@ -114,7 +114,7 @@ async function render() {
   if (state.view === 'settings') return renderSettingsView();
 }
 
-/* ---------- Kalenderansicht ---------- */
+/* ---------- Calendar view ---------- */
 
 async function loadMonthTrades() {
   const { from, to } = monthRange(state.cursor);
@@ -132,7 +132,7 @@ async function loadMonthTrades() {
 async function renderCalendarView() {
   $main.innerHTML = `<div class="cal-header">
       <div class="cal-nav"><button class="btn btn-ghost btn-sm" id="prevMonth">‹</button>
-      <button class="btn btn-ghost btn-sm" id="todayBtn">Heute</button></div>
+      <button class="btn btn-ghost btn-sm" id="todayBtn">Today</button></div>
       <h2 id="monthLabel"></h2>
       <div class="cal-nav"><button class="btn btn-ghost btn-sm" id="nextMonth">›</button></div>
     </div>
@@ -144,7 +144,7 @@ async function renderCalendarView() {
   document.getElementById('nextMonth').onclick = () => { state.cursor = new Date(state.cursor.getFullYear(), state.cursor.getMonth() + 1, 1); renderCalendarView(); };
   document.getElementById('todayBtn').onclick = () => { state.cursor = startOfMonth(new Date()); state.selectedDay = isoDate(new Date()); renderCalendarView(); };
 
-  document.getElementById('monthLabel').textContent = state.cursor.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+  document.getElementById('monthLabel').textContent = state.cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   await loadMonthTrades();
   drawCalGrid();
@@ -164,8 +164,8 @@ function drawCalSummary() {
   const losses = state.trades.filter((t) => (t.pnl ?? 0) < 0).length;
   document.getElementById('calSummary').innerHTML = `
     <span>Trades: <b>${state.trades.length}</b></span>
-    <span>Gewinn/Verlust: <b class="${pnlClass(total)}">${fmtMoney(total)}</b></span>
-    <span>Gewonnen/Verloren: <b>${wins} / ${losses}</b></span>`;
+    <span>P&L: <b class="${pnlClass(total)}">${fmtMoney(total)}</b></span>
+    <span>Won/Lost: <b>${wins} / ${losses}</b></span>`;
 }
 
 function drawCalGrid() {
@@ -173,7 +173,7 @@ function drawCalGrid() {
   const y = state.cursor.getFullYear();
   const m = state.cursor.getMonth();
   const first = new Date(y, m, 1);
-  const startOffset = (first.getDay() + 6) % 7; // Montag = 0
+  const startOffset = (first.getDay() + 6) % 7; // Monday = 0
   const daysInMonth = new Date(y, m + 1, 0).getDate();
   const today = isoDate(new Date());
 
@@ -183,7 +183,7 @@ function drawCalGrid() {
     byDate.get(t.date).push(t);
   }
 
-  const dows = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+  const dows = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   let html = dows.map((d) => `<div class="cal-dow">${d}</div>`).join('');
 
   const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
@@ -199,7 +199,7 @@ function drawCalGrid() {
     const isToday = dateStr === today;
     html += `<div class="cal-day${isToday ? ' today' : ''}" data-date="${dateStr}">
         <span class="d-num">${dayNum}</span>
-        ${dayTrades.length ? `<span class="d-pnl ${pnlClass(pnl)}">${fmtMoney(pnl)}</span><span class="d-count">${dayTrades.length} Trade${dayTrades.length > 1 ? 's' : ''}</span>` : ''}
+        ${dayTrades.length ? `<span class="d-pnl ${pnlClass(pnl)}">${fmtMoney(pnl)}</span><span class="d-count">${dayTrades.length} trade${dayTrades.length > 1 ? 's' : ''}</span>` : ''}
       </div>`;
   }
   grid.innerHTML = html;
@@ -212,41 +212,83 @@ function selectDay(dateStr) {
   state.selectedDay = dateStr;
   document.querySelectorAll('.cal-day').forEach((c) => c.style.outline = c.dataset.date === dateStr ? '2px solid var(--accent)' : '');
   const dayTrades = state.trades.filter((t) => t.date === dateStr);
-  const label = new Date(`${dateStr}T00:00:00`).toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' });
+  const label = new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: '2-digit' });
   const box = document.getElementById('dayTrades');
   box.innerHTML = `<div class="section-title">${label}</div>` +
     (dayTrades.length
       ? dayTrades.map(tradeRowHtml).join('')
-      : `<div class="empty-hint">Keine Trades an diesem Tag.<br><button class="btn btn-sm" id="addForDay">+ Trade erfassen</button></div>`);
-  box.querySelectorAll('.trade-row').forEach((row) => row.addEventListener('click', () => openTradeForm(Number(row.dataset.id))));
+      : `<div class="empty-hint">No trades on this day.<br><button class="btn btn-sm" id="addForDay">+ Add trade</button></div>`);
+  box.querySelectorAll('.trade-row').forEach((row) => row.addEventListener('click', () => openTradeView(Number(row.dataset.id))));
+  box.querySelectorAll('.trade-edit').forEach((btn) => btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openTradeForm(Number(btn.dataset.id));
+  }));
   const addBtn = document.getElementById('addForDay');
   if (addBtn) addBtn.addEventListener('click', () => openTradeForm(null, dateStr));
 }
 
 function tradeRowHtml(t) {
-  const thumb = t.images[0] ? `<img class="thumb" src="${t.images[0].url}" alt="">` : '';
+  // Images are intentionally not shown in the calendar list, only in the trade view/edit forms.
   const time = t.time ? ` · ${t.time}` : '';
   return `<div class="trade-row" data-id="${t.id}">
-      ${thumb}
       <div>
         <div><span class="symbol">${escapeHtml(t.symbol)}</span> <span class="badge ${t.direction}">${t.direction === 'long' ? 'Long' : 'Short'}</span></div>
         <div class="meta">${escapeHtml(t.setup || '')}${time}</div>
       </div>
       <div class="pnl ${pnlClass(t.pnl ?? 0)}">${t.pnl != null ? fmtMoney(t.pnl) : '–'}</div>
+      <button type="button" class="icon-btn trade-edit" data-id="${t.id}" title="Edit" aria-label="Edit">✎</button>
     </div>`;
 }
 
-/* ---------- Statistik ---------- */
+/* ---------- Stats ---------- */
 
 async function renderStatsView() {
-  $main.innerHTML = `<div class="section-title">Statistik (gesamter Zeitraum)</div><div id="statsBody" class="muted">Lade…</div>`;
+  $main.innerHTML = `
+    <div class="cal-header">
+      <div class="cal-nav"><button class="btn btn-ghost btn-sm" id="statsPrev">‹</button></div>
+      <h2 id="statsMonthLabel"></h2>
+      <div class="cal-nav"><button class="btn btn-ghost btn-sm" id="statsNext">›</button></div>
+    </div>
+    <div id="statsMonthBody" class="muted">Loading…</div>
+    <div class="section-title">All time</div>
+    <div id="statsAllBody" class="muted">Loading…</div>
+    <div class="section-title">Export</div>
+    <a class="btn btn-outline" href="/api/export" download>Export all trades as JSON</a>
+  `;
+
+  if (!state.statsCursor) state.statsCursor = startOfMonth(new Date());
+
+  document.getElementById('statsPrev').onclick = () => { state.statsCursor = new Date(state.statsCursor.getFullYear(), state.statsCursor.getMonth() - 1, 1); renderMonthStats(); };
+  document.getElementById('statsNext').onclick = () => { state.statsCursor = new Date(state.statsCursor.getFullYear(), state.statsCursor.getMonth() + 1, 1); renderMonthStats(); };
+
+  await renderMonthStats();
+
   let all;
   try {
     all = await api.listTrades();
   } catch (err) {
-    document.getElementById('statsBody').textContent = err.message;
+    document.getElementById('statsAllBody').textContent = err.message;
     return;
   }
+  document.getElementById('statsAllBody').innerHTML = statsHtml(all);
+}
+
+async function renderMonthStats() {
+  document.getElementById('statsMonthLabel').textContent = state.statsCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const { from, to } = monthRange(state.statsCursor);
+  let monthTrades;
+  try {
+    monthTrades = await api.listTrades(from, to);
+  } catch (err) {
+    document.getElementById('statsMonthBody').textContent = err.message;
+    return;
+  }
+  document.getElementById('statsMonthBody').innerHTML = monthTrades.length
+    ? statsHtml(monthTrades)
+    : '<div class="empty-hint">No trades in this month.</div>';
+}
+
+function statsHtml(all) {
   const closed = all.filter((t) => t.pnl != null);
   const total = closed.reduce((s, t) => s + t.pnl, 0);
   const wins = closed.filter((t) => t.pnl > 0);
@@ -264,32 +306,30 @@ async function renderStatsView() {
   for (const t of closed) bySymbol.set(t.symbol, (bySymbol.get(t.symbol) || 0) + t.pnl);
   const topSymbols = [...bySymbol.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
 
-  document.getElementById('statsBody').innerHTML = `
+  return `
     <div class="stat-grid">
-      <div class="stat-box"><div class="label">Gesamt-P&L</div><div class="value ${pnlClass(total)}">${fmtMoney(total)}</div></div>
-      <div class="stat-box"><div class="label">Trades gesamt</div><div class="value">${all.length}</div></div>
-      <div class="stat-box"><div class="label">Trefferquote</div><div class="value">${winRate.toFixed(1)} %</div></div>
-      <div class="stat-box"><div class="label">Profit-Faktor</div><div class="value">${Number.isFinite(pf) ? pf.toFixed(2) : '∞'}</div></div>
-      <div class="stat-box"><div class="label">Ø Gewinn</div><div class="value pnl-pos">${fmtMoney(avgWin)}</div></div>
-      <div class="stat-box"><div class="label">Ø Verlust</div><div class="value pnl-neg">${fmtMoney(avgLoss)}</div></div>
-      <div class="stat-box"><div class="label">Bester Trade</div><div class="value pnl-pos">${fmtMoney(best)}</div></div>
-      <div class="stat-box"><div class="label">Schlechtester Trade</div><div class="value pnl-neg">${fmtMoney(worst)}</div></div>
+      <div class="stat-box"><div class="label">Total P&L</div><div class="value ${pnlClass(total)}">${fmtMoney(total)}</div></div>
+      <div class="stat-box"><div class="label">Total trades</div><div class="value">${all.length}</div></div>
+      <div class="stat-box"><div class="label">Win rate</div><div class="value">${winRate.toFixed(1)} %</div></div>
+      <div class="stat-box"><div class="label">Profit factor</div><div class="value">${Number.isFinite(pf) ? pf.toFixed(2) : '∞'}</div></div>
+      <div class="stat-box"><div class="label">Avg. win</div><div class="value pnl-pos">${fmtMoney(avgWin)}</div></div>
+      <div class="stat-box"><div class="label">Avg. loss</div><div class="value pnl-neg">${fmtMoney(avgLoss)}</div></div>
+      <div class="stat-box"><div class="label">Best trade</div><div class="value pnl-pos">${fmtMoney(best)}</div></div>
+      <div class="stat-box"><div class="label">Worst trade</div><div class="value pnl-neg">${fmtMoney(worst)}</div></div>
     </div>
-    <div class="section-title">P&L nach Symbol</div>
+    <div class="section-title">P&L by symbol</div>
     ${topSymbols.length ? topSymbols.map(([sym, p]) => `
       <div class="trade-row" style="cursor:default">
         <div class="symbol">${escapeHtml(sym)}</div>
         <div class="pnl ${pnlClass(p)}">${fmtMoney(p)}</div>
-      </div>`).join('') : '<div class="empty-hint">Noch keine abgeschlossenen Trades.</div>'}
-    <div class="section-title">Export</div>
-    <a class="btn btn-outline" href="/api/export" download>Alle Trades als JSON exportieren</a>
+      </div>`).join('') : '<div class="empty-hint">No closed trades yet.</div>'}
   `;
 }
 
-/* ---------- Einstellungen ---------- */
+/* ---------- Settings ---------- */
 
 async function renderSettingsView() {
-  $main.innerHTML = `<div class="muted">Lade…</div>`;
+  $main.innerHTML = `<div class="muted">Loading…</div>`;
   let settings, storage;
   try {
     [settings, storage] = await Promise.all([api.getSettings(), api.getStorage()]);
@@ -301,32 +341,33 @@ async function renderSettingsView() {
 
   $main.innerHTML = `
     <div class="card">
-      <div class="section-title" style="margin-top:0">Währung</div>
+      <div class="section-title" style="margin-top:0">Currency</div>
       <select id="currencySelect">
-        ${['EUR', 'USD', 'CHF', 'GBP', 'JPY', 'NONE'].map((c) => `<option value="${c}" ${c === settings.currency ? 'selected' : ''}>${c === 'NONE' ? 'Keine / Punkte' : c}</option>`).join('')}
+        ${['EUR', 'USD', 'CHF', 'GBP', 'JPY', 'NONE'].map((c) => `<option value="${c}" ${c === settings.currency ? 'selected' : ''}>${c === 'NONE' ? 'None / points' : c}</option>`).join('')}
       </select>
     </div>
 
     <div class="card">
-      <div class="section-title" style="margin-top:0">Bilder-Speicherort</div>
+      <div class="section-title" style="margin-top:0">Image storage location</div>
       <p class="muted" style="margin-top:0;font-size:0.85rem">
-        Setup-Bilder werden auf diesem Server gespeichert. Läuft der Server auf dem Raspberry Pi,
-        kann hier ein beliebiges angeschlossenes Laufwerk (z. B. unter <code>/mnt/…</code>) oder ein
-        Nextcloud-Datenordner gewählt werden.
+        Setup screenshots are stored on this server. If the server runs on a
+        Raspberry Pi, you can pick any attached drive (e.g. under <code>/mnt/…</code>)
+        or a Nextcloud data folder here.
       </p>
       <div id="locList"></div>
       <div id="driveSuggestions"></div>
-      <button class="btn btn-outline btn-sm" id="addLocBtn" style="margin-top:8px">+ Ordner/Laufwerk hinzufügen</button>
+      <button class="btn btn-outline btn-sm" id="addLocBtn" style="margin-top:8px">+ Add folder/drive</button>
     </div>
 
     <div class="card">
       <div class="section-title" style="margin-top:0">App</div>
       <p class="muted" style="margin-top:0;font-size:0.85rem">
-        Für Zugriff von Laptop und Smartphone über Tailscale: Server mit <code>HOST=0.0.0.0</code> starten
-        und über die Tailscale-Adresse des Raspberry Pi aufrufen. Diese Seite lässt sich auf dem
-        Smartphone über „Zum Startbildschirm“ als App installieren.
+        To access from a laptop and a phone over Tailscale: start the server with
+        <code>HOST=0.0.0.0</code> and open it via the Raspberry Pi's Tailscale
+        address. On a phone, add this page to the home screen to install it as an app.
       </p>
-      <button class="btn btn-outline btn-sm" id="exportBtn">Daten exportieren (JSON)</button>
+      <button class="btn btn-outline btn-sm" id="installBtn" hidden>Install app</button>
+      <button class="btn btn-outline btn-sm" id="exportBtn">Export data (JSON)</button>
     </div>
   `;
 
@@ -334,13 +375,23 @@ async function renderSettingsView() {
     try {
       await api.setSettings({ currency: e.target.value });
       state.currency = e.target.value;
-      showToast('Währung gespeichert.');
+      showToast('Currency saved.');
     } catch (err) {
       showToast(err.message, true);
     }
   });
   document.getElementById('exportBtn').addEventListener('click', () => { window.location.href = '/api/export'; });
   document.getElementById('addLocBtn').addEventListener('click', () => openLocationForm());
+
+  const installBtn = document.getElementById('installBtn');
+  if (deferredPrompt) installBtn.hidden = false;
+  installBtn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    installBtn.hidden = true;
+  });
 
   drawLocations(storage);
 }
@@ -350,36 +401,36 @@ function drawLocations(storage) {
     <div class="loc-row">
       <span class="dot ${loc.available ? 'ok' : 'bad'}"></span>
       <div style="flex:1">
-        <div class="name">${escapeHtml(loc.name)} ${loc.active ? '<span class="badge long">Aktiv</span>' : ''}</div>
+        <div class="name">${escapeHtml(loc.name)} ${loc.active ? '<span class="badge long">Active</span>' : ''}</div>
         <div class="path">${escapeHtml(loc.path)}</div>
-        <div class="muted" style="font-size:0.75rem">${loc.imageCount} Bild(er)${loc.free != null ? ` · ${(loc.free / 1e9).toFixed(1)} GB frei` : ''}${!loc.available ? ' · nicht erreichbar' : ''}</div>
+        <div class="muted" style="font-size:0.75rem">${loc.imageCount} image(s)${loc.free != null ? ` · ${(loc.free / 1e9).toFixed(1)} GB free` : ''}${!loc.available ? ' · unavailable' : ''}</div>
       </div>
-      ${!loc.active ? `<button class="btn btn-sm btn-outline" data-act="${loc.id}">Aktivieren</button>` : ''}
-      ${!loc.isDefault ? `<button class="btn btn-sm btn-danger" data-rm="${loc.id}">Entfernen</button>` : ''}
+      ${!loc.active ? `<button class="btn btn-sm btn-outline" data-act="${loc.id}">Activate</button>` : ''}
+      ${!loc.isDefault ? `<button class="btn btn-sm btn-danger" data-rm="${loc.id}">Remove</button>` : ''}
     </div>`).join('');
 
   document.querySelectorAll('[data-act]').forEach((btn) => btn.addEventListener('click', async () => {
     try {
       await api.setActiveLocation(btn.dataset.act);
-      showToast('Speicherort aktiviert.');
+      showToast('Storage location activated.');
       renderSettingsView();
     } catch (err) { showToast(err.message, true); }
   }));
   document.querySelectorAll('[data-rm]').forEach((btn) => btn.addEventListener('click', async () => {
-    if (!confirm('Diesen Speicherort aus der Liste entfernen? Dateien werden nicht gelöscht.')) return;
+    if (!confirm('Remove this storage location from the list? Files will not be deleted.')) return;
     try {
       await api.removeLocation(btn.dataset.rm);
-      showToast('Entfernt.');
+      showToast('Removed.');
       renderSettingsView();
     } catch (err) { showToast(err.message, true); }
   }));
 
   document.getElementById('driveSuggestions').innerHTML = storage.suggestions.length
-    ? `<div class="muted" style="font-size:0.78rem;margin:8px 0 4px">Gefundene Laufwerke:</div>` +
+    ? `<div class="muted" style="font-size:0.78rem;margin:8px 0 4px">Detected drives:</div>` +
       storage.suggestions.map((s) => `
         <div class="suggest-row">
           <span>${escapeHtml(s.name)}<br><span class="muted">${escapeHtml(s.path)}</span></span>
-          <button class="btn btn-sm" data-use="${escapeHtml(s.path)}" data-name="${escapeHtml(s.name)}">Nutzen</button>
+          <button class="btn btn-sm" data-use="${escapeHtml(s.path)}" data-name="${escapeHtml(s.name)}">Use</button>
         </div>`).join('')
     : '';
   document.querySelectorAll('[data-use]').forEach((btn) => btn.addEventListener('click', () => openLocationForm(btn.dataset.name, btn.dataset.use)));
@@ -387,12 +438,12 @@ function drawLocations(storage) {
 
 function openLocationForm(name = '', path = '') {
   const node = el(`<div class="overlay"><div class="sheet">
-    <div class="sheet-header"><h3>Speicherort hinzufügen</h3><button class="icon-btn" id="closeModal">✕</button></div>
-    <div class="field"><label>Name</label><input id="locName" value="${escapeHtml(name)}" placeholder="z. B. Nextcloud-Bilder"></div>
-    <div class="field"><label>Absoluter Pfad</label><input id="locPath" value="${escapeHtml(path)}" placeholder="/mnt/usb/Trading oder D:\\Trading\\Bilder"></div>
-    <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;margin-bottom:10px"><input type="checkbox" id="locActivate" style="width:auto" checked> Direkt aktivieren</label>
+    <div class="sheet-header"><h3>Add storage location</h3><button class="icon-btn" id="closeModal">✕</button></div>
+    <div class="field"><label>Name</label><input id="locName" value="${escapeHtml(name)}" placeholder="e.g. Nextcloud images"></div>
+    <div class="field"><label>Absolute path</label><input id="locPath" value="${escapeHtml(path)}" placeholder="/mnt/usb/Trading or D:\\Trading\\Images"></div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;margin-bottom:10px"><input type="checkbox" id="locActivate" style="width:auto" checked> Activate immediately</label>
     <div class="error-msg" id="locErr"></div>
-    <div class="sheet-actions"><button class="btn btn-outline" id="locCancel">Abbrechen</button><button class="btn" id="locSave">Speichern</button></div>
+    <div class="sheet-actions"><button class="btn btn-outline" id="locCancel">Cancel</button><button class="btn" id="locSave">Save</button></div>
   </div></div>`);
   $modalRoot.appendChild(node);
   const close = () => node.remove();
@@ -405,7 +456,7 @@ function openLocationForm(name = '', path = '') {
     const activate = node.querySelector('#locActivate').checked;
     try {
       await api.addLocation(n, p, activate);
-      showToast('Speicherort hinzugefügt.');
+      showToast('Storage location added.');
       close();
       renderSettingsView();
     } catch (err) {
@@ -414,7 +465,7 @@ function openLocationForm(name = '', path = '') {
   };
 }
 
-/* ---------- Trade-Formular ---------- */
+/* ---------- Trade form ---------- */
 
 document.getElementById('btnAdd').addEventListener('click', () => openTradeForm(null, state.selectedDay || isoDate(new Date())));
 
@@ -429,21 +480,21 @@ async function openTradeForm(id, presetDate) {
     }
   }
   const t = trade || { date: presetDate || isoDate(new Date()), time: '', symbol: '', direction: 'long', images: [] };
-  const pendingImages = []; // Bilder, bevor der Trade gespeichert ist, zwischenspeichern
+  const pendingImages = []; // images staged before a new trade is saved
 
   const node = el(`<div class="overlay"><div class="sheet">
     <div class="sheet-header">
-      <h3>${trade ? 'Trade bearbeiten' : 'Neuer Trade'}</h3>
+      <h3>${trade ? 'Edit trade' : 'New trade'}</h3>
       <button class="icon-btn" id="closeModal">✕</button>
     </div>
     <form id="tradeForm">
       <div class="row2">
-        <div class="field"><label>Datum</label><input type="date" id="f_date" value="${t.date}" required></div>
-        <div class="field"><label>Uhrzeit (optional)</label><input type="time" id="f_time" value="${t.time || ''}"></div>
+        <div class="field"><label>Date</label><input type="date" id="f_date" value="${t.date}" required></div>
+        <div class="field"><label>Time (optional)</label><input type="time" id="f_time" value="${t.time || ''}"></div>
       </div>
       <div class="row2">
-        <div class="field"><label>Symbol</label><input id="f_symbol" value="${escapeHtml(t.symbol || '')}" placeholder="z. B. EURUSD" required></div>
-        <div class="field"><label>Richtung</label>
+        <div class="field"><label>Symbol</label><input id="f_symbol" value="${escapeHtml(t.symbol || '')}" placeholder="e.g. EURUSD" required></div>
+        <div class="field"><label>Direction</label>
           <div class="seg" id="f_direction" data-value="${t.direction}">
             <button type="button" class="long ${t.direction === 'long' ? 'active' : ''}" data-v="long">Long</button>
             <button type="button" class="short ${t.direction === 'short' ? 'active' : ''}" data-v="short">Short</button>
@@ -451,38 +502,37 @@ async function openTradeForm(id, presetDate) {
         </div>
       </div>
       <div class="row3">
-        <div class="field"><label>Einstieg</label><input type="text" inputmode="decimal" id="f_entry" value="${t.entryPrice ?? ''}"></div>
-        <div class="field"><label>Ausstieg</label><input type="text" inputmode="decimal" id="f_exit" value="${t.exitPrice ?? ''}"></div>
-        <div class="field"><label>Größe</label><input type="text" inputmode="decimal" id="f_size" value="${t.size ?? ''}"></div>
+        <div class="field"><label>Entry (optional)</label><input type="text" inputmode="decimal" id="f_entry" value="${t.entryPrice ?? ''}"></div>
+        <div class="field"><label>Exit (optional)</label><input type="text" inputmode="decimal" id="f_exit" value="${t.exitPrice ?? ''}"></div>
+        <div class="field"><label>Size (optional)</label><input type="text" inputmode="decimal" id="f_size" value="${t.size ?? ''}"></div>
       </div>
       <div class="row3">
-        <div class="field"><label>Stop-Loss</label><input type="text" inputmode="decimal" id="f_sl" value="${t.stopLoss ?? ''}"></div>
-        <div class="field"><label>Take-Profit</label><input type="text" inputmode="decimal" id="f_tp" value="${t.takeProfit ?? ''}"></div>
-        <div class="field"><label>Gebühren</label><input type="text" inputmode="decimal" id="f_fees" value="${t.fees ?? ''}"></div>
+        <div class="field"><label>Stop-loss (optional)</label><input type="text" inputmode="decimal" id="f_sl" value="${t.stopLoss ?? ''}"></div>
+        <div class="field"><label>Take-profit (optional)</label><input type="text" inputmode="decimal" id="f_tp" value="${t.takeProfit ?? ''}"></div>
+        <div class="field"><label>Fees (optional)</label><input type="text" inputmode="decimal" id="f_fees" value="${t.fees ?? ''}"></div>
       </div>
       <div class="row2">
-        <div class="field"><label>Ergebnis (P&L)</label><input type="text" inputmode="decimal" id="f_pnl" value="${t.pnl ?? ''}"></div>
-        <div class="field"><label>Setup / Strategie</label><input id="f_setup" value="${escapeHtml(t.setup || '')}" placeholder="z. B. Breakout"></div>
+        <div class="field"><label>Result (P&L)</label><input type="text" inputmode="decimal" id="f_pnl" value="${t.pnl ?? ''}" required></div>
+        <div class="field"><label>Setup / strategy (optional)</label><input id="f_setup" value="${escapeHtml(t.setup || '')}" placeholder="e.g. Breakout"></div>
       </div>
       <div class="field">
-        <label>Bewertung der Ausführung</label>
+        <label>Execution rating (optional)</label>
         <div class="rating" id="f_rating" data-value="${t.rating || 0}">
           ${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-v="${n}" class="${n <= (t.rating || 0) ? 'on' : ''}">★</button>`).join('')}
         </div>
       </div>
-      <div class="field"><label>Notizen (Setup, Plan, Emotionen …)</label><textarea id="f_notes">${escapeHtml(t.notes || '')}</textarea></div>
-      <div class="field"><label>Nachbetrachtung</label><textarea id="f_review">${escapeHtml(t.review || '')}</textarea></div>
+      <div class="field"><label>Notes (optional – setup, plan, emotions …)</label><textarea id="f_notes">${escapeHtml(t.notes || '')}</textarea></div>
+      <div class="field"><label>Review (optional)</label><textarea id="f_review">${escapeHtml(t.review || '')}</textarea></div>
 
       <div class="field">
-        <label>Setup-Bilder</label>
+        <label>Setup screenshots (optional)</label>
         <div class="img-grid" id="imgGrid"></div>
-        <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
       </div>
 
       <div class="error-msg" id="formErr"></div>
       <div class="sheet-actions">
-        ${trade ? '<button type="button" class="btn btn-danger" id="deleteBtn">Löschen</button>' : ''}
-        <button type="submit" class="btn" id="saveBtn">Speichern</button>
+        ${trade ? '<button type="button" class="btn btn-danger" id="deleteBtn">Delete</button>' : ''}
+        <button type="submit" class="btn" id="saveBtn">Save</button>
       </div>
     </form>
   </div></div>`);
@@ -503,7 +553,7 @@ async function openTradeForm(id, presetDate) {
     if (!b) return;
     const v = Number(b.dataset.v);
     const cur = Number(node.querySelector('#f_rating').dataset.value);
-    const next = cur === v ? 0 : v; // erneut klicken = zurücksetzen
+    const next = cur === v ? 0 : v; // click again to reset
     node.querySelector('#f_rating').dataset.value = next;
     node.querySelectorAll('#f_rating button').forEach((x) => x.classList.toggle('on', Number(x.dataset.v) <= next));
   });
@@ -516,11 +566,10 @@ async function openTradeForm(id, presetDate) {
         <button type="button" class="rm" data-rm-img="${img.id}">✕</button>
       </div>`).join('');
     const pending = pendingImages.map((p, i) => p.uploading
-      ? `<div class="img-thumb uploading">Lädt…</div>`
+      ? `<div class="img-thumb uploading">Uploading…</div>`
       : `<div class="img-thumb" data-pending="${i}"><img src="${p.url}" alt=""></div>`).join('');
-    grid.innerHTML = saved + pending + (trade || true ? `<button type="button" class="upload-btn" id="addImgBtn">+</button>` : '');
-    const addBtn = document.getElementById('addImgBtn');
-    if (addBtn) addBtn.onclick = () => node.querySelector('#fileInput').click();
+    grid.innerHTML = saved + pending + `<label class="upload-btn" for="fileInput">+<input type="file" id="fileInput" accept="image/*" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden"></label>`;
+    grid.querySelector('#fileInput').addEventListener('change', onFilesSelected);
     grid.querySelectorAll('[data-rm-img]').forEach((b) => b.onclick = async () => {
       const imgId = Number(b.dataset.rmImg);
       try {
@@ -534,9 +583,7 @@ async function openTradeForm(id, presetDate) {
       openLightbox(img.src);
     }));
   }
-  renderImages();
-
-  node.querySelector('#fileInput').addEventListener('change', async (e) => {
+  async function onFilesSelected(e) {
     const files = [...e.target.files];
     e.target.value = '';
     for (const file of files) {
@@ -554,19 +601,20 @@ async function openTradeForm(id, presetDate) {
           renderImages();
         }
       } else {
-        // Neuer Trade: Bild merken, nach dem Anlegen hochladen
+        // New trade: stage the image, upload once the trade has been created
         pendingImages.push({ file, url: URL.createObjectURL(file), uploading: false });
         renderImages();
       }
     }
-  });
+  }
+  renderImages();
 
   if (trade) {
     node.querySelector('#deleteBtn').addEventListener('click', async () => {
-      if (!confirm('Diesen Trade inkl. Bildern wirklich löschen?')) return;
+      if (!confirm('Delete this trade and its images?')) return;
       try {
         await api.deleteTrade(trade.id);
-        showToast('Trade gelöscht.');
+        showToast('Trade deleted.');
         close();
         if (state.view === 'calendar') renderCalendarView();
       } catch (err) {
@@ -605,11 +653,11 @@ async function openTradeForm(id, presetDate) {
         saved = await api.createTrade(payload);
         for (const p of pendingImages) {
           if (p.file) {
-            try { await api.uploadImage(saved.id, p.file); } catch (err) { showToast(`Bild-Upload fehlgeschlagen: ${err.message}`, true); }
+            try { await api.uploadImage(saved.id, p.file); } catch (err) { showToast(`Image upload failed: ${err.message}`, true); }
           }
         }
       }
-      showToast('Gespeichert.');
+      showToast('Saved.');
       close();
       state.selectedDay = payload.date;
       if (state.view === 'calendar') {
@@ -626,13 +674,73 @@ async function openTradeForm(id, presetDate) {
   });
 }
 
+/* ---------- Trade view (read-only) ---------- */
+
+async function openTradeView(id) {
+  let t;
+  try {
+    t = await api.getTrade(id);
+  } catch (err) {
+    showToast(err.message, true);
+    return;
+  }
+
+  const node = el(`<div class="overlay"><div class="sheet">
+    <div class="sheet-header">
+      <h3>${escapeHtml(t.symbol)} <span class="badge ${t.direction}">${t.direction === 'long' ? 'Long' : 'Short'}</span></h3>
+      <button class="icon-btn" id="closeModal">✕</button>
+    </div>
+    <div id="viewBody"></div>
+  </div></div>`);
+  $modalRoot.appendChild(node);
+  const close = () => node.remove();
+  node.querySelector('#closeModal').onclick = close;
+  node.addEventListener('click', (e) => { if (e.target === node) close(); });
+
+  node.querySelector('#viewBody').innerHTML = tradeViewHtml(t);
+  node.querySelectorAll('.img-thumb img').forEach((img) => img.addEventListener('click', () => openLightbox(img.src)));
+
+  node.querySelector('#editFromView').addEventListener('click', () => {
+    close();
+    openTradeForm(t.id);
+  });
+}
+
+function viewField(label, value) {
+  if (value === null || value === undefined || value === '') return '';
+  return `<div class="field"><label>${label}</label><div>${value}</div></div>`;
+}
+
+function tradeViewHtml(t) {
+  const dateLabel = new Date(`${t.date}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: '2-digit' });
+  const stars = t.rating ? '★'.repeat(t.rating) + '☆'.repeat(5 - t.rating) : '';
+  return `
+    ${viewField('Date', `${dateLabel}${t.time ? ` · ${t.time}` : ''}`)}
+    ${viewField('Result (P&L)', `<span class="${pnlClass(t.pnl ?? 0)}">${fmtMoney(t.pnl)}</span>`)}
+    ${viewField('Entry', t.entryPrice)}
+    ${viewField('Exit', t.exitPrice)}
+    ${viewField('Size', t.size)}
+    ${viewField('Stop-loss', t.stopLoss)}
+    ${viewField('Take-profit', t.takeProfit)}
+    ${viewField('Fees', t.fees)}
+    ${viewField('Setup / strategy', escapeHtml(t.setup))}
+    ${viewField('Execution rating', stars)}
+    ${viewField('Notes', escapeHtml(t.notes || '').replace(/\n/g, '<br>'))}
+    ${viewField('Review', escapeHtml(t.review || '').replace(/\n/g, '<br>'))}
+    ${t.images.length ? `<div class="field"><label>Setup screenshots</label><div class="img-grid">
+        ${t.images.map((img) => `<div class="img-thumb"><img src="${img.url}" alt=""></div>`).join('')}
+      </div></div>` : ''}
+    <div class="sheet-actions"><button type="button" class="btn btn-block" id="editFromView">✎ Edit trade</button></div>
+  `;
+}
+
 function openLightbox(src) {
   const node = el(`<div class="lightbox"><button class="close">✕</button><img src="${src}" alt=""></div>`);
   node.addEventListener('click', () => node.remove());
   document.body.appendChild(node);
 }
 
-/* ---------- PWA: Service Worker & Installation ---------- */
+/* ---------- PWA: service worker & install prompt ---------- */
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -644,16 +752,14 @@ let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
-  document.getElementById('btnInstall').hidden = false;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.hidden = false;
 });
-document.getElementById('btnInstall').addEventListener('click', async () => {
-  if (!deferredPrompt) return;
-  deferredPrompt.prompt();
-  await deferredPrompt.userChoice;
+window.addEventListener('appinstalled', () => {
   deferredPrompt = null;
-  document.getElementById('btnInstall').hidden = true;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.hidden = true;
 });
-window.addEventListener('appinstalled', () => { document.getElementById('btnInstall').hidden = true; });
 
 /* ---------- Start ---------- */
 
@@ -661,6 +767,6 @@ window.addEventListener('appinstalled', () => { document.getElementById('btnInst
   try {
     const s = await api.getSettings();
     state.currency = s.currency;
-  } catch { /* Server evtl. noch nicht bereit – Standardwährung verwenden */ }
+  } catch { /* server may not be ready yet – fall back to default currency */ }
   render();
 })();
