@@ -1,0 +1,15 @@
+{
+  "name": "trading-journal",
+  "version": "0.1.0",
+  "description": "Trading-Journal als PWA: Kalender, Trades, Setup-Bilder auf frei wählbarem Laufwerk",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch server/index.js",
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/**/*.test.js\""
+  }
+}

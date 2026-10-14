@@ -1,0 +1,20 @@
+[Unit]
+Description=Trading Journal
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/tradingjournal
+Environment=HOST=0.0.0.0
+Environment=PORT=3000
+# Datenbank + Standard-Bilderordner; bei Bedarf auf eine externe Festplatte zeigen:
+Environment=TJ_DATA_DIR=/home/pi/tradingjournal-data
+ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning server/index.js
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
