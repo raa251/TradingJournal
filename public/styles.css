@@ -237,3 +237,23 @@ h1, h2, h3 { color: var(--text); }
 .stat-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
 .stat-box .label { color: var(--muted); font-size: 0.75rem; }
 .stat-box .value { font-size: 1.3rem; font-weight: 700; margin-top: 4px; }
+
+.stats-section {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 14px 4px; margin-bottom: 20px; background: var(--surface);
+}
+.stats-section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.stats-section-header h2 { margin: 0; font-size: 1.05rem; }
+.stats-section-icon {
+  width: 30px; height: 30px; border-radius: 9px; flex: none;
+  display: flex; align-items: center; justify-content: center; font-size: 1.05rem;
+}
+.stats-section-month {
+  border-top: 3px solid var(--accent);
+}
+.stats-section-month .stats-section-icon { background: rgba(52, 211, 153, 0.15); color: var(--accent); }
+.stats-section-all {
+  border-top: 3px solid #818cf8;
+}
+.stats-section-all .stats-section-icon { background: rgba(129, 140, 248, 0.15); color: #818cf8; }
+.stats-section .stat-box { background: var(--surface-2); }

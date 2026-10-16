@@ -250,14 +250,26 @@ function tradeRowHtml(t) {
 
 async function renderStatsView() {
   $main.innerHTML = `
-    <div class="cal-header">
-      <div class="cal-nav"><button class="btn btn-ghost btn-sm" id="statsPrev">‹</button></div>
-      <h2 id="statsMonthLabel"></h2>
-      <div class="cal-nav"><button class="btn btn-ghost btn-sm" id="statsNext">›</button></div>
-    </div>
-    <div id="statsMonthBody" class="muted">Loading…</div>
-    <div class="section-title">All time</div>
-    <div id="statsAllBody" class="muted">Loading…</div>
+    <section class="stats-section stats-section-month">
+      <div class="stats-section-header">
+        <span class="stats-section-icon">📅</span>
+        <div class="cal-header" style="margin-bottom:0;flex:1">
+          <div class="cal-nav"><button class="btn btn-ghost btn-sm" id="statsPrev">‹</button></div>
+          <h2 id="statsMonthLabel"></h2>
+          <div class="cal-nav"><button class="btn btn-ghost btn-sm" id="statsNext">›</button></div>
+        </div>
+      </div>
+      <div id="statsMonthBody" class="muted">Loading…</div>
+    </section>
+
+    <section class="stats-section stats-section-all">
+      <div class="stats-section-header">
+        <span class="stats-section-icon">∑</span>
+        <h2>All time</h2>
+      </div>
+      <div id="statsAllBody" class="muted">Loading…</div>
+    </section>
+
     <div class="section-title">Export</div>
     <a class="btn btn-outline" href="/api/export" download>Export all trades as JSON</a>
   `;
@@ -372,8 +384,12 @@ async function renderSettingsView() {
         <code>HOST=0.0.0.0</code> and open it via the Raspberry Pi's Tailscale
         address. On a phone, add this page to the home screen to install it as an app.
       </p>
-      <button class="btn btn-outline btn-sm" id="installBtn" hidden>Install app</button>
-      <button class="btn btn-outline btn-sm" id="exportBtn">Export data (JSON)</button>
+      <div id="installRow">
+        ${isStandalone()
+          ? '<span class="muted" style="font-size:0.85rem">✓ Installed as an app</span>'
+          : '<button class="btn btn-outline btn-sm" id="installBtn">Install app</button>'}
+      </div>
+      <button class="btn btn-outline btn-sm" id="exportBtn" style="margin-top:8px">Export data (JSON)</button>
     </div>
   `;
 
@@ -390,14 +406,18 @@ async function renderSettingsView() {
   document.getElementById('addLocBtn').addEventListener('click', () => openLocationForm());
 
   const installBtn = document.getElementById('installBtn');
-  if (deferredPrompt) installBtn.hidden = false;
-  installBtn.addEventListener('click', async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-    deferredPrompt = null;
-    installBtn.hidden = true;
-  });
+  if (installBtn) {
+    installBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        renderSettingsView();
+      } else {
+        showToast('Use your browser\'s menu: "Add to Home Screen" (iOS/Safari) or "Install app" (Chrome/Edge menu).');
+      }
+    });
+  }
 
   drawLocations(storage);
 }
@@ -754,17 +774,19 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
 let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
-  const btn = document.getElementById('installBtn');
-  if (btn) btn.hidden = false;
+  if (state.view === 'settings') renderSettingsView();
 });
 window.addEventListener('appinstalled', () => {
   deferredPrompt = null;
-  const btn = document.getElementById('installBtn');
-  if (btn) btn.hidden = true;
+  if (state.view === 'settings') renderSettingsView();
 });
 
 /* ---------- Start ---------- */
