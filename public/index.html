@@ -15,7 +15,25 @@
 <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-<div id="app">
+<div id="authScreen" class="auth-screen" hidden>
+  <div class="auth-card">
+    <div class="brand" style="justify-content:center;margin-bottom:18px">📈 Trading Journal</div>
+    <div class="seg" id="authTabs" data-value="signin" style="margin-bottom:16px">
+      <button type="button" class="active" data-v="signin">Sign in</button>
+      <button type="button" data-v="signup">Create account</button>
+    </div>
+    <form id="authForm">
+      <div class="field"><label>Email</label><input type="email" id="authEmail" required autocomplete="username"></div>
+      <div class="field"><label>Password</label><input type="password" id="authPassword" required autocomplete="current-password" minlength="6"></div>
+      <div class="error-msg" id="authErr"></div>
+      <div class="muted" id="authInfo" style="font-size:0.85rem;margin-bottom:10px"></div>
+      <button type="submit" class="btn btn-block" id="authSubmit">Sign in</button>
+      <button type="button" class="btn btn-outline btn-block" id="authForgot" style="margin-top:8px">Forgot password?</button>
+    </form>
+  </div>
+</div>
+
+<div id="app" hidden>
   <header class="topbar">
     <div class="brand">📈 Trading Journal</div>
     <nav class="tabs">
