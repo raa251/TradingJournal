@@ -1,40 +1,44 @@
-# Migration to Supabase + optional local folder — TODO
+# TODO
 
-Status board for moving Trading Journal from the self-hosted
-Raspberry-Pi/SQLite backend to a Supabase-backed app (free tier) that can
-be shared with other people, plus an optional local-folder mirror for
-offline/backup use on laptop and phone. Mirrored as GitHub issues for
-visibility; check items off here and in the issues as they land.
+## Architecture decision (2026-10-25)
 
-- [x] Supabase project created (`trading-journal`, eu-central-1)
-- [x] Database schema: `trades`, `trade_images`, `user_settings`, all with
-      Row Level Security scoped to `user_id = auth.uid()`
-- [x] Storage bucket `trade-images` with per-user folder policies
-- [x] Security advisor warnings resolved (function `search_path`)
-- [x] `public/supabase-client.js`: Supabase-backed drop-in replacement for
-      the old `api` object, plus an `auth` helper
-- [x] `public/local-backup.js`: optional local-folder mirror module (File
-      System Access API; desktop Chrome/Edge + Android Chrome only)
-- [x] Old self-hosted server moved to `legacy-self-hosted/` (kept as a
-      fallback, not deleted)
-- [ ] **Sign-in/sign-up screen actually wired up** — the HTML exists in
-      `index.html` but nothing shows/hides it or handles form submit yet.
-      The app cannot log anyone in right now. (#1)
-- [ ] **Fix `renderSettingsView` crash** — calls an undefined
-      `auth_supabaseUser()`. (#1)
-- [ ] **Local folder mirroring actually wired into trade/image flows** —
-      `local-backup.js` is only used by the Settings "choose folder" UI;
-      creating/editing/deleting a trade or uploading/deleting an image
-      never calls `mirrorTrade` / `mirrorImage` / `removeTradeMirror`. (#2)
-- [ ] Root `README.md` still describes the old self-hosted setup — rewrite
-      for the Supabase + optional local-folder architecture. (#3)
-- [ ] End-to-end test: sign up, create a trade with images, confirm it
-      shows up after reload and from a second browser session (simulating
-      the colleague's device), confirm local folder actually receives
-      files on a Chromium-based browser. (#4)
-- [ ] Host the static frontend for free (Vercel/Cloudflare Pages/Netlify)
-      so it's reachable without running anything on a Pi at all. (#5)
-- [ ] Invite the colleague: have them sign up their own account (separate,
-      private journal — enforced by RLS, not just by UI). (#6)
+Supabase was tried and then **fully reverted** (commit `8c98288`). Final
+setup: there is no shared backend at all. Each person runs their own
+separate, fully local copy of the original self-hosted app:
 
-See the GitHub issues on this repo for the same list with more detail.
+- **You**: keep running it on the Raspberry Pi, reachable over Tailscale,
+  with a choosable image storage folder - exactly as before.
+- **Colleague**: runs the same app locally on his own machine(s), no
+  Tailscale, no network exposure. If he uses it on both a laptop and a
+  phone, those are two independent, unsynced copies (his choice, not a
+  limitation he needs solved right now).
+
+This gives both people a completely separate, private journal by
+construction (separate installs/databases), at zero cost, with no login
+and no cloud dependency.
+
+## Remaining steps
+
+- [x] Move `legacy-self-hosted/*` back to the repo root (server, tests,
+      deploy, scripts, package.json)
+- [x] Restore `public/` (app.js, index.html, styles.css, manifest, sw.js)
+      to the pre-Supabase version; remove `supabase-client.js` /
+      `local-backup.js`
+- [x] Close the now-obsolete Supabase GitHub issues (#7-#10, #3)
+- [ ] Decommission the Supabase project that was created during the
+      experiment (`trading-journal`, ref `awwsndasgqrixvqecatw`) - nothing
+      of value is stored there, safe to delete
+- [ ] Write colleague setup instructions: how to get the code and run it
+      locally on his own machine (covered in README's "Running your own
+      copy" section - verify it's clear enough for a non-dev colleague)
+- [ ] Double-check `npm test` and a manual smoke run both still work after
+      the revert (done once already after the revert commit; re-verify
+      after any further change)
+
+## Still open from before (unrelated to Supabase)
+
+- #2 Weekend delete - option to delete all Saturday/Sunday entries from
+  the calendar
+- #4 Storage management option - bulk-delete images older than a chosen
+  age (1 day/week/month/3 months/6 months/1 year/all), trades stay intact,
+  with a confirmation dialog
