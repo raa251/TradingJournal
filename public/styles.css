@@ -257,21 +257,3 @@ h1, h2, h3 { color: var(--text); }
 }
 .stats-section-all .stats-section-icon { background: rgba(129, 140, 248, 0.15); color: #818cf8; }
 .stats-section .stat-box { background: var(--surface-2); }
-
-/* ---- Auth screen ---- */
-.auth-screen {
-  min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center;
-  padding: 20px;
-}
-.auth-card {
-  width: 100%; max-width: 380px; background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 24px;
-}
-.auth-card .seg button { font-weight: 600; }
-.auth-card .seg button.active { background: var(--surface-2); color: var(--text); border-color: var(--accent); }
-
-/* ---- Account / local backup (Settings) ---- */
-.account-row { display: flex; align-items: center; gap: 10px; }
-.account-row .email { font-weight: 600; word-break: break-all; }
-.backup-status { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.backup-status .folder-name { font-weight: 600; }

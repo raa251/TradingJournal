@@ -1,38 +1,60 @@
-/* Trading Journal – PWA frontend. No framework, no build step.
-   Data lives in Supabase (Postgres + Storage + Auth) so it syncs between
-   devices/people for free; see supabase-client.js for that layer and
-   local-backup.js for the optional local-folder mirror. */
+/* Trading Journal – PWA frontend. No framework, no build step. */
 
-import { api, auth } from './supabase-client.js';
-import * as localBackup from './local-backup.js';
+/* ---------- API client ---------- */
 
-/* ---------- Offline cache (trade metadata only, for the calendar/stats
-   screens to still show something useful without a connection) ---------- */
-
-const offlineCache = {
-  key: (from, to) => `tj-cache-${from || ''}-${to || ''}`,
-  save(from, to, trades) {
-    try { localStorage.setItem(offlineCache.key(from, to), JSON.stringify(trades)); } catch { /* storage full/unavailable - skip */ }
-  },
-  load(from, to) {
-    try { return JSON.parse(localStorage.getItem(offlineCache.key(from, to)) || 'null'); } catch { return null; }
-  },
-};
-
-async function listTradesWithCache(from, to) {
-  try {
-    const trades = await api.listTrades(from, to);
-    offlineCache.save(from, to, trades);
-    return trades;
-  } catch (err) {
-    const cached = offlineCache.load(from, to);
-    if (cached) {
-      showToast('Offline – showing cached data from this device.');
-      return cached;
+const api = {
+  async req(method, path, body) {
+    const opts = { method, headers: {} };
+    if (!['GET', 'HEAD'].includes(method)) opts.headers['X-TJ'] = '1';
+    if (body !== undefined) {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
     }
-    throw err;
-  }
-}
+    const res = await fetch(path, opts);
+    if (res.status === 204) return null;
+    const isJson = (res.headers.get('content-type') || '').includes('application/json');
+    const data = isJson ? await res.json().catch(() => null) : null;
+    if (!res.ok) throw new Error((data && data.error) || `Error ${res.status}`);
+    return data;
+  },
+  get: (p) => api.req('GET', p),
+  post: (p, b) => api.req('POST', p, b),
+  put: (p, b) => api.req('PUT', p, b),
+  del: (p) => api.req('DELETE', p),
+
+  listTrades: (from, to) => {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    const qs = params.toString();
+    return api.get(`/api/trades${qs ? `?${qs}` : ''}`);
+  },
+  getTrade: (id) => api.get(`/api/trades/${id}`),
+  createTrade: (t) => api.post('/api/trades', t),
+  updateTrade: (id, t) => api.put(`/api/trades/${id}`, t),
+  deleteTrade: (id) => api.del(`/api/trades/${id}`),
+  uploadImage: async (tradeId, file) => {
+    const res = await fetch(`/api/trades/${tradeId}/images`, {
+      method: 'POST',
+      headers: {
+        'X-TJ': '1',
+        'Content-Type': file.type || 'application/octet-stream',
+        'X-Filename': encodeURIComponent(file.name || 'image'),
+      },
+      body: file,
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((data && data.error) || `Error ${res.status}`);
+    return data;
+  },
+  deleteImage: (id) => api.del(`/api/images/${id}`),
+  getSettings: () => api.get('/api/settings'),
+  setSettings: (s) => api.put('/api/settings', s),
+  getStorage: () => api.get('/api/storage'),
+  addLocation: (name, path, activate) => api.post('/api/storage/locations', { name, path, activate }),
+  setActiveLocation: (id) => api.put('/api/storage/active', { id }),
+  removeLocation: (id) => api.del(`/api/storage/locations/${id}`),
+};
 
 /* ---------- State / helpers ---------- */
 
@@ -47,8 +69,6 @@ const state = {
 const $main = document.getElementById('main');
 const $modalRoot = document.getElementById('modalRoot');
 const $toast = document.getElementById('toast');
-const $authScreen = document.getElementById('authScreen');
-const $appRoot = document.getElementById('app');
 
 function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
 function pad(n) { return String(n).padStart(2, '0'); }
@@ -106,7 +126,7 @@ async function loadMonthTrades() {
   const { from, to } = monthRange(state.cursor);
   state.loading = true;
   try {
-    state.trades = await listTradesWithCache(from, to);
+    state.trades = await api.listTrades(from, to);
   } catch (err) {
     showToast(err.message, true);
     state.trades = [];
@@ -263,7 +283,7 @@ async function renderStatsView() {
 
   let all;
   try {
-    all = await listTradesWithCache();
+    all = await api.listTrades();
   } catch (err) {
     document.getElementById('statsAllBody').textContent = err.message;
     return;
@@ -276,7 +296,7 @@ async function renderMonthStats() {
   const { from, to } = monthRange(state.statsCursor);
   let monthTrades;
   try {
-    monthTrades = await listTradesWithCache(from, to);
+    monthTrades = await api.listTrades(from, to);
   } catch (err) {
     document.getElementById('statsMonthBody').textContent = err.message;
     return;
@@ -328,30 +348,16 @@ function statsHtml(all) {
 
 async function renderSettingsView() {
   $main.innerHTML = `<div class="muted">Loading…</div>`;
-  let settings;
+  let settings, storage;
   try {
-    settings = await api.getSettings();
+    [settings, storage] = await Promise.all([api.getSettings(), api.getStorage()]);
   } catch (err) {
     $main.innerHTML = `<div class="empty-hint">${escapeHtml(err.message)}</div>`;
     return;
   }
   state.currency = settings.currency;
 
-  const session = await auth.getSession();
-  const email = session?.user?.email || '';
-  const folder = await localBackup.folderInfo();
-
   $main.innerHTML = `
-    <div class="card">
-      <div class="section-title" style="margin-top:0">Account</div>
-      <div class="account-row">
-        <span class="dot ok"></span>
-        <span class="email">${escapeHtml(email)}</span>
-      </div>
-      <p class="muted" style="font-size:0.8rem">Your trades and screenshots are private to this account - nobody else can see them, even other people using this same app.</p>
-      <button class="btn btn-outline btn-sm" id="signOutBtn">Sign out</button>
-    </div>
-
     <div class="card">
       <div class="section-title" style="margin-top:0">Currency</div>
       <select id="currencySelect">
@@ -360,44 +366,23 @@ async function renderSettingsView() {
     </div>
 
     <div class="card">
-      <div class="section-title" style="margin-top:0">Cloud sync</div>
+      <div class="section-title" style="margin-top:0">Image storage location</div>
       <p class="muted" style="margin-top:0;font-size:0.85rem">
-        Trades and setup screenshots are stored securely in the cloud and sync
-        automatically across every device you sign in on - no network setup,
-        no Tailscale, nothing to install on a server.
+        Setup screenshots are stored on this server. If the server runs on a
+        Raspberry Pi, you can pick any attached drive (e.g. under <code>/mnt/…</code>)
+        or a Nextcloud data folder here.
       </p>
-    </div>
-
-    <div class="card">
-      <div class="section-title" style="margin-top:0">Local backup folder</div>
-      ${localBackup.supportsLocalBackup ? `
-        <p class="muted" style="margin-top:0;font-size:0.85rem">
-          Optionally mirror every trade and screenshot as plain files into a folder
-          on this device, in addition to the cloud. Useful as a personal backup or
-          to feed the files into something else (e.g. your own sync tool).
-        </p>
-        <div class="backup-status">
-          <span class="dot ${folder ? 'ok' : 'bad'}"></span>
-          <span>${folder ? `Backing up to <span class="folder-name">${escapeHtml(folder.name)}</span>` : 'Not set up on this device'}</span>
-        </div>
-        <button class="btn btn-outline btn-sm" id="chooseFolderBtn">${folder ? 'Change folder' : 'Choose folder'}</button>
-        <button class="btn btn-outline btn-sm" id="reconnectFolderBtn" style="display:none">Reconnect folder</button>
-        ${folder ? '<button class="btn btn-outline btn-sm" id="stopFolderBtn">Stop local backup</button>' : ''}
-      ` : `
-        <p class="muted" style="margin-top:0;font-size:0.85rem">
-          Your browser doesn't support picking a local folder (this is a limitation
-          of Safari/iOS and Firefox, not of this app). Your data is still fully
-          synced via the cloud - use <b>Export data</b> below to save a manual copy
-          to this device whenever you like.
-        </p>
-      `}
+      <div id="locList"></div>
+      <div id="driveSuggestions"></div>
+      <button class="btn btn-outline btn-sm" id="addLocBtn" style="margin-top:8px">+ Add folder/drive</button>
     </div>
 
     <div class="card">
       <div class="section-title" style="margin-top:0">App</div>
       <p class="muted" style="margin-top:0;font-size:0.85rem">
-        Add this page to your home screen / install it as an app to use it like a
-        native app on your phone or laptop.
+        To access from a laptop and a phone over Tailscale: start the server with
+        <code>HOST=0.0.0.0</code> and open it via the Raspberry Pi's Tailscale
+        address. On a phone, add this page to the home screen to install it as an app.
       </p>
       <div id="installRow">
         ${isStandalone()
@@ -417,57 +402,8 @@ async function renderSettingsView() {
       showToast(err.message, true);
     }
   });
-  document.getElementById('signOutBtn').addEventListener('click', async () => {
-    await auth.signOut();
-  });
-  document.getElementById('exportBtn').addEventListener('click', async () => {
-    try {
-      const data = await api.exportAll();
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'trading-journal-export.json';
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      showToast(err.message, true);
-    }
-  });
-
-  const chooseFolderBtn = document.getElementById('chooseFolderBtn');
-  if (chooseFolderBtn) {
-    chooseFolderBtn.addEventListener('click', async () => {
-      try {
-        await localBackup.chooseFolder();
-        showToast('Local backup folder set.');
-        renderSettingsView();
-      } catch (err) {
-        if (err.name !== 'AbortError') showToast(err.message, true);
-      }
-    });
-  }
-  const reconnectFolderBtn = document.getElementById('reconnectFolderBtn');
-  if (reconnectFolderBtn) {
-    reconnectFolderBtn.addEventListener('click', async () => {
-      const ok = await localBackup.reconnectFolder();
-      showToast(ok ? 'Reconnected.' : 'Could not reconnect to the folder.', !ok);
-      renderSettingsView();
-    });
-  }
-  const stopFolderBtn = document.getElementById('stopFolderBtn');
-  if (stopFolderBtn) {
-    stopFolderBtn.addEventListener('click', async () => {
-      await localBackup.forgetFolder();
-      showToast('Local backup stopped.');
-      renderSettingsView();
-    });
-  }
-  if (localBackup.supportsLocalBackup && folder) {
-    localBackup.getActiveHandle().then((handle) => {
-      if (!handle && reconnectFolderBtn) reconnectFolderBtn.style.display = '';
-    });
-  }
+  document.getElementById('exportBtn').addEventListener('click', () => { window.location.href = '/api/export'; });
+  document.getElementById('addLocBtn').addEventListener('click', () => openLocationForm());
 
   const installBtn = document.getElementById('installBtn');
   if (installBtn) {
@@ -482,6 +418,77 @@ async function renderSettingsView() {
       }
     });
   }
+
+  drawLocations(storage);
+}
+
+function drawLocations(storage) {
+  document.getElementById('locList').innerHTML = storage.locations.map((loc) => `
+    <div class="loc-row">
+      <span class="dot ${loc.available ? 'ok' : 'bad'}"></span>
+      <div style="flex:1">
+        <div class="name">${escapeHtml(loc.name)} ${loc.active ? '<span class="badge long">Active</span>' : ''}</div>
+        <div class="path">${escapeHtml(loc.path)}</div>
+        <div class="muted" style="font-size:0.75rem">${loc.imageCount} image(s)${loc.free != null ? ` · ${(loc.free / 1e9).toFixed(1)} GB free` : ''}${!loc.available ? ' · unavailable' : ''}</div>
+      </div>
+      ${!loc.active ? `<button class="btn btn-sm btn-outline" data-act="${loc.id}">Activate</button>` : ''}
+      ${!loc.isDefault ? `<button class="btn btn-sm btn-danger" data-rm="${loc.id}">Remove</button>` : ''}
+    </div>`).join('');
+
+  document.querySelectorAll('[data-act]').forEach((btn) => btn.addEventListener('click', async () => {
+    try {
+      await api.setActiveLocation(btn.dataset.act);
+      showToast('Storage location activated.');
+      renderSettingsView();
+    } catch (err) { showToast(err.message, true); }
+  }));
+  document.querySelectorAll('[data-rm]').forEach((btn) => btn.addEventListener('click', async () => {
+    if (!confirm('Remove this storage location from the list? Files will not be deleted.')) return;
+    try {
+      await api.removeLocation(btn.dataset.rm);
+      showToast('Removed.');
+      renderSettingsView();
+    } catch (err) { showToast(err.message, true); }
+  }));
+
+  document.getElementById('driveSuggestions').innerHTML = storage.suggestions.length
+    ? `<div class="muted" style="font-size:0.78rem;margin:8px 0 4px">Detected drives:</div>` +
+      storage.suggestions.map((s) => `
+        <div class="suggest-row">
+          <span>${escapeHtml(s.name)}<br><span class="muted">${escapeHtml(s.path)}</span></span>
+          <button class="btn btn-sm" data-use="${escapeHtml(s.path)}" data-name="${escapeHtml(s.name)}">Use</button>
+        </div>`).join('')
+    : '';
+  document.querySelectorAll('[data-use]').forEach((btn) => btn.addEventListener('click', () => openLocationForm(btn.dataset.name, btn.dataset.use)));
+}
+
+function openLocationForm(name = '', path = '') {
+  const node = el(`<div class="overlay"><div class="sheet">
+    <div class="sheet-header"><h3>Add storage location</h3><button class="icon-btn" id="closeModal">✕</button></div>
+    <div class="field"><label>Name</label><input id="locName" value="${escapeHtml(name)}" placeholder="e.g. Nextcloud images"></div>
+    <div class="field"><label>Absolute path</label><input id="locPath" value="${escapeHtml(path)}" placeholder="/mnt/usb/Trading or D:\\Trading\\Images"></div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;margin-bottom:10px"><input type="checkbox" id="locActivate" style="width:auto" checked> Activate immediately</label>
+    <div class="error-msg" id="locErr"></div>
+    <div class="sheet-actions"><button class="btn btn-outline" id="locCancel">Cancel</button><button class="btn" id="locSave">Save</button></div>
+  </div></div>`);
+  $modalRoot.appendChild(node);
+  const close = () => node.remove();
+  node.querySelector('#closeModal').onclick = close;
+  node.querySelector('#locCancel').onclick = close;
+  node.addEventListener('click', (e) => { if (e.target === node) close(); });
+  node.querySelector('#locSave').onclick = async () => {
+    const n = node.querySelector('#locName').value.trim();
+    const p = node.querySelector('#locPath').value.trim();
+    const activate = node.querySelector('#locActivate').checked;
+    try {
+      await api.addLocation(n, p, activate);
+      showToast('Storage location added.');
+      close();
+      renderSettingsView();
+    } catch (err) {
+      node.querySelector('#locErr').textContent = err.message;
+    }
+  };
 }
 
 /* ---------- Trade form ---------- */
@@ -591,12 +598,10 @@ async function openTradeForm(id, presetDate) {
     grid.querySelector('#fileInput').addEventListener('change', onFilesSelected);
     grid.querySelectorAll('[data-rm-img]').forEach((b) => b.onclick = async () => {
       const imgId = Number(b.dataset.rmImg);
-      const removedImage = t.images.find((im) => im.id === imgId);
       try {
         await api.deleteImage(imgId);
         t.images = t.images.filter((im) => im.id !== imgId);
         renderImages();
-        if (removedImage) localBackup.removeImageFile(t, removedImage.name).catch(() => {});
       } catch (err) { showToast(err.message, true); }
     });
     grid.querySelectorAll('img').forEach((img) => img.addEventListener('click', (e) => {
@@ -615,7 +620,6 @@ async function openTradeForm(id, presetDate) {
         try {
           const img = await api.uploadImage(trade.id, file);
           t.images.push(img);
-          localBackup.mirrorImage(t, file).catch(() => {});
         } catch (err) {
           showToast(err.message, true);
         } finally {
@@ -636,7 +640,6 @@ async function openTradeForm(id, presetDate) {
       if (!confirm('Delete this trade and its images?')) return;
       try {
         await api.deleteTrade(trade.id);
-        localBackup.removeTradeMirror(trade).catch(() => {});
         showToast('Trade deleted.');
         close();
         if (state.view === 'calendar') renderCalendarView();
@@ -672,16 +675,11 @@ async function openTradeForm(id, presetDate) {
       let saved;
       if (trade) {
         saved = await api.updateTrade(trade.id, payload);
-        localBackup.mirrorTrade(saved).catch(() => {});
       } else {
         saved = await api.createTrade(payload);
-        localBackup.mirrorTrade(saved).catch(() => {});
         for (const p of pendingImages) {
           if (p.file) {
-            try {
-              await api.uploadImage(saved.id, p.file);
-              localBackup.mirrorImage(saved, p.file).catch(() => {});
-            } catch (err) { showToast(`Image upload failed: ${err.message}`, true); }
+            try { await api.uploadImage(saved.id, p.file); } catch (err) { showToast(`Image upload failed: ${err.message}`, true); }
           }
         }
       }
@@ -791,93 +789,12 @@ window.addEventListener('appinstalled', () => {
   if (state.view === 'settings') renderSettingsView();
 });
 
-/* ---------- Auth screen ---------- */
-
-function showApp() {
-  $authScreen.hidden = true;
-  $appRoot.hidden = false;
-}
-
-function showAuthScreen() {
-  $appRoot.hidden = true;
-  $authScreen.hidden = false;
-}
-
-function setupAuthForm() {
-  const tabs = document.getElementById('authTabs');
-  const form = document.getElementById('authForm');
-  const submitBtn = document.getElementById('authSubmit');
-  const errEl = document.getElementById('authErr');
-  const infoEl = document.getElementById('authInfo');
-  const forgotBtn = document.getElementById('authForgot');
-
-  tabs.addEventListener('click', (e) => {
-    const b = e.target.closest('button');
-    if (!b) return;
-    tabs.dataset.value = b.dataset.v;
-    tabs.querySelectorAll('button').forEach((x) => x.classList.toggle('active', x === b));
-    submitBtn.textContent = b.dataset.v === 'signup' ? 'Create account' : 'Sign in';
-    errEl.textContent = '';
-    infoEl.textContent = '';
-  });
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    errEl.textContent = '';
-    infoEl.textContent = '';
-    submitBtn.disabled = true;
-    const email = document.getElementById('authEmail').value.trim();
-    const password = document.getElementById('authPassword').value;
-    try {
-      if (tabs.dataset.value === 'signup') {
-        const { data, error } = await auth.signUp(email, password);
-        if (error) throw error;
-        if (!data.session) {
-          infoEl.textContent = 'Account created. Check your email to confirm it, then sign in.';
-        }
-      } else {
-        const { error } = await auth.signIn(email, password);
-        if (error) throw error;
-      }
-    } catch (err) {
-      errEl.textContent = err.message;
-    } finally {
-      submitBtn.disabled = false;
-    }
-  });
-
-  forgotBtn.addEventListener('click', async () => {
-    errEl.textContent = '';
-    infoEl.textContent = '';
-    const email = document.getElementById('authEmail').value.trim();
-    if (!email) {
-      errEl.textContent = 'Enter your email above first.';
-      return;
-    }
-    try {
-      const { error } = await auth.resetPassword(email);
-      if (error) throw error;
-      infoEl.textContent = 'Password reset email sent - check your inbox.';
-    } catch (err) {
-      errEl.textContent = err.message;
-    }
-  });
-}
-
 /* ---------- Start ---------- */
 
 (async function init() {
-  setupAuthForm();
-  auth.onChange(async (session) => {
-    if (!session) {
-      showAuthScreen();
-      return;
-    }
-    showApp();
-    try {
-      const s = await api.getSettings();
-      state.currency = s.currency;
-    } catch { /* settings row may not exist yet - fall back to default currency */ }
-    render();
-  });
+  try {
+    const s = await api.getSettings();
+    state.currency = s.currency;
+  } catch { /* server may not be ready yet – fall back to default currency */ }
+  render();
 })();
