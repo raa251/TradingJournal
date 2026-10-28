@@ -235,8 +235,13 @@ route('POST', /^\/api\/images\/cleanup$/, async (req, res) => {
   sendJson(res, 200, { deleted: rows.length });
 });
 
+const currentSettings = () => ({
+  currency: db.getSetting('currency', 'EUR'),
+  hideWeekends: db.getSetting('hide_weekends', '0') === '1',
+});
+
 route('GET', /^\/api\/settings$/, async (req, res) => {
-  sendJson(res, 200, { currency: db.getSetting('currency', 'EUR') });
+  sendJson(res, 200, currentSettings());
 });
 
 route('PUT', /^\/api\/settings$/, async (req, res) => {
@@ -245,7 +250,10 @@ route('PUT', /^\/api\/settings$/, async (req, res) => {
     if (!CURRENCIES.includes(body.currency)) throw new HttpError(400, 'Unknown currency.');
     db.setSetting('currency', body.currency);
   }
-  sendJson(res, 200, { currency: db.getSetting('currency', 'EUR') });
+  if (body.hideWeekends !== undefined) {
+    db.setSetting('hide_weekends', body.hideWeekends ? '1' : '0');
+  }
+  sendJson(res, 200, currentSettings());
 });
 
 async function storageOverview() {
