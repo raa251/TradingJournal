@@ -54,6 +54,7 @@ const api = {
   addLocation: (name, path, activate) => api.post('/api/storage/locations', { name, path, activate }),
   setActiveLocation: (id) => api.put('/api/storage/active', { id }),
   removeLocation: (id) => api.del(`/api/storage/locations/${id}`),
+  cleanupImages: (olderThan) => api.post('/api/images/cleanup', { olderThan }),
 };
 
 /* ---------- State / helpers ---------- */
@@ -378,6 +379,26 @@ async function renderSettingsView() {
     </div>
 
     <div class="card">
+      <div class="section-title" style="margin-top:0">Storage cleanup</div>
+      <p class="muted" style="margin-top:0;font-size:0.85rem">
+        Delete setup screenshots older than a chosen age to free up space.
+        Trades themselves are never touched - only their attached images.
+      </p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="cleanupAge">
+          <option value="1d">Older than 1 day</option>
+          <option value="1w">Older than 1 week</option>
+          <option value="1m" selected>Older than 1 month</option>
+          <option value="3m">Older than 3 months</option>
+          <option value="6m">Older than 6 months</option>
+          <option value="1y">Older than 1 year</option>
+          <option value="all">All images</option>
+        </select>
+        <button class="btn btn-outline btn-sm" id="cleanupBtn">Delete images</button>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="section-title" style="margin-top:0">App</div>
       <p class="muted" style="margin-top:0;font-size:0.85rem">
         To access from a laptop and a phone over Tailscale: start the server with
@@ -404,6 +425,18 @@ async function renderSettingsView() {
   });
   document.getElementById('exportBtn').addEventListener('click', () => { window.location.href = '/api/export'; });
   document.getElementById('addLocBtn').addEventListener('click', () => openLocationForm());
+  document.getElementById('cleanupBtn').addEventListener('click', async () => {
+    const sel = document.getElementById('cleanupAge');
+    const label = sel.options[sel.selectedIndex].text.toLowerCase();
+    if (!confirm(`Delete all setup screenshots ${label}? Trades stay intact, only the images are removed. This cannot be undone.`)) return;
+    try {
+      const { deleted } = await api.cleanupImages(sel.value);
+      showToast(deleted ? `${deleted} image(s) deleted.` : 'No images matched - nothing deleted.');
+      renderSettingsView();
+    } catch (err) {
+      showToast(err.message, true);
+    }
+  });
 
   const installBtn = document.getElementById('installBtn');
   if (installBtn) {
