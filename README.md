@@ -73,6 +73,28 @@ server directly to the open internet/port-forwarding with `HOST=0.0.0.0`
 without putting authentication in front of it first (e.g. Tailscale
 Serve/Funnel with access restrictions, or a reverse proxy with basic auth).
 
+## Giving a copy to someone else (e.g. a colleague)
+
+There is no shared backend and no login - each person who wants their own
+journal just runs their own separate copy of this app. Their data (and
+yours) never touches anyone else's machine.
+
+1. They clone this repo onto their own laptop (needs Node **>= 22.5**):
+   ```bash
+   git clone <repo-url> trading-journal
+   cd trading-journal
+   npm start
+   ```
+2. They open <http://localhost:3000> in their browser. That's it - no
+   Tailscale, no network setup, nothing to expose. Their trades/images are
+   stored only on that machine (`./data/` by default).
+3. If they also want it on their phone: a phone can't run the Node server
+   itself in the same simple way (Android users could try running it under
+   Termux; this isn't tested here). The straightforward option is to just
+   use it from the laptop, or run a second, completely separate copy
+   wherever else they want it - by design these copies don't sync with
+   each other, exactly like two independent notebooks.
+
 ## Data model
 
 - **Trade**: date, time, symbol, direction (long/short), entry, exit,

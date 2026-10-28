@@ -25,9 +25,11 @@ and no cloud dependency.
       to the pre-Supabase version; remove `supabase-client.js` /
       `local-backup.js`
 - [x] Close the now-obsolete Supabase GitHub issues (#7-#10, #3)
-- [ ] Decommission the Supabase project that was created during the
-      experiment (`trading-journal`, ref `awwsndasgqrixvqecatw`) - nothing
-      of value is stored there, safe to delete
+- [x] Supabase project from the experiment (`trading-journal`, ref
+      `awwsndasgqrixvqecatw`) is already auto-paused (inactive, free tier,
+      costs nothing). Full deletion isn't available via API/MCP - if you
+      want it gone entirely, delete it yourself from the Supabase
+      dashboard; otherwise it's harmless as-is.
 - [ ] Write colleague setup instructions: how to get the code and run it
       locally on his own machine (covered in README's "Running your own
       copy" section - verify it's clear enough for a non-dev colleague)
