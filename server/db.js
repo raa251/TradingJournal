@@ -173,6 +173,21 @@ export function deleteImageRow(id) {
 export const countImagesInDir = (dir) =>
   db.prepare('SELECT COUNT(*) AS n FROM images WHERE storage_dir = ?').get(dir).n;
 
+/**
+ * Returns and deletes all image rows created before the given ISO timestamp
+ * (or all of them when cutoffIso is null). The trade rows themselves are
+ * left untouched - only the image rows (and later, their files) go away.
+ */
+export function deleteImagesOlderThan(cutoffIso) {
+  const rows = cutoffIso
+    ? db.prepare('SELECT * FROM images WHERE created_at < ?').all(cutoffIso)
+    : db.prepare('SELECT * FROM images').all();
+  if (!rows.length) return rows;
+  if (cutoffIso) db.prepare('DELETE FROM images WHERE created_at < ?').run(cutoffIso);
+  else db.prepare('DELETE FROM images').run();
+  return rows;
+}
+
 export function getSetting(key, fallback = null) {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
   return row ? row.value : fallback;

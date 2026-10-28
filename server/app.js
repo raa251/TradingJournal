@@ -220,6 +220,21 @@ route('DELETE', /^\/api\/images\/(\d+)$/, async (req, res, m) => {
   res.writeHead(204).end();
 });
 
+const CLEANUP_AGES = {
+  '1d': 1, '1w': 7, '1m': 30, '3m': 90, '6m': 182, '1y': 365, all: null,
+};
+
+route('POST', /^\/api\/images\/cleanup$/, async (req, res) => {
+  const body = await readJson(req);
+  const age = String(body.olderThan || '');
+  if (!(age in CLEANUP_AGES)) throw new HttpError(400, 'Invalid time period.');
+  const days = CLEANUP_AGES[age];
+  const cutoffIso = days === null ? null : new Date(Date.now() - days * 86400000).toISOString();
+  const rows = db.deleteImagesOlderThan(cutoffIso);
+  await Promise.all(rows.map(storage.removeImageFile));
+  sendJson(res, 200, { deleted: rows.length });
+});
+
 route('GET', /^\/api\/settings$/, async (req, res) => {
   sendJson(res, 200, { currency: db.getSetting('currency', 'EUR') });
 });
