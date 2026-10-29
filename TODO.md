@@ -30,17 +30,22 @@ and no cloud dependency.
       costs nothing). Full deletion isn't available via API/MCP - if you
       want it gone entirely, delete it yourself from the Supabase
       dashboard; otherwise it's harmless as-is.
-- [ ] Write colleague setup instructions: how to get the code and run it
-      locally on his own machine (covered in README's "Running your own
-      copy" section - verify it's clear enough for a non-dev colleague)
-- [ ] Double-check `npm test` and a manual smoke run both still work after
-      the revert (done once already after the revert commit; re-verify
-      after any further change)
+- [x] Write colleague setup instructions: how to get the code and run it
+      locally on his own machine (README's "Giving a copy to someone else"
+      section)
+- [x] `npm test` passes after every change since the revert (10/10)
 
-## Still open from before (unrelated to Supabase)
+## Done (previously open, unrelated to Supabase)
 
-- #2 Weekend delete - option to delete all Saturday/Sunday entries from
-  the calendar
-- #4 Storage management option - bulk-delete images older than a chosen
-  age (1 day/week/month/3 months/6 months/1 year/all), trades stay intact,
-  with a confirmation dialog
+- [x] #4 Storage management option - Settings -> Storage cleanup lets you
+      bulk-delete images older than a chosen age (1 day/week/month/3
+      months/6 months/1 year/all); trades stay intact, only the image
+      files/rows are removed, with a confirmation dialog first
+      (commits `37b3b6f`, `f6eab42`).
+- [x] #2 Weekend delete - clarified with the user as "hide weekend
+      columns", not "delete weekend trades". Settings -> Calendar ->
+      "Hide Saturday/Sunday columns" switches the calendar to a 5-day
+      week; existing weekend trades are kept and stay visible in the day
+      view/stats/export (commits `c643325`, `6f55c76`).
+
+No open items remain right now.
