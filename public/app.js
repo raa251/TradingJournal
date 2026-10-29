@@ -65,6 +65,7 @@ const state = {
   trades: [],
   loading: false,
   currency: 'EUR',
+  hideWeekends: false,
 };
 
 const $main = document.getElementById('main');
@@ -190,11 +191,15 @@ function drawCalGrid() {
     byDate.get(t.date).push(t);
   }
 
-  const dows = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const allDows = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const hideWeekends = state.hideWeekends;
+  const dows = hideWeekends ? allDows.slice(0, 5) : allDows;
   let html = dows.map((d) => `<div class="cal-dow">${d}</div>`).join('');
+  grid.style.gridTemplateColumns = `repeat(${dows.length}, 1fr)`;
 
   const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
   for (let i = 0; i < totalCells; i++) {
+    if (hideWeekends && i % 7 >= 5) continue; // skip Sat/Sun columns entirely
     const dayNum = i - startOffset + 1;
     if (dayNum < 1 || dayNum > daysInMonth) {
       html += `<div class="cal-day outside"></div>`;
@@ -399,6 +404,18 @@ async function renderSettingsView() {
     </div>
 
     <div class="card">
+      <div class="section-title" style="margin-top:0">Calendar</div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem">
+        <input type="checkbox" id="hideWeekendsChk" style="width:auto" ${settings.hideWeekends ? 'checked' : ''}>
+        Hide Saturday/Sunday columns
+      </label>
+      <p class="muted" style="margin:6px 0 0;font-size:0.8rem">
+        Shows a 5-day week only. Trades already logged on a weekend stay in
+        the journal and remain visible in the day view and stats.
+      </p>
+    </div>
+
+    <div class="card">
       <div class="section-title" style="margin-top:0">App</div>
       <p class="muted" style="margin-top:0;font-size:0.85rem">
         To access from a laptop and a phone over Tailscale: start the server with
@@ -424,6 +441,17 @@ async function renderSettingsView() {
     }
   });
   document.getElementById('exportBtn').addEventListener('click', () => { window.location.href = '/api/export'; });
+  document.getElementById('hideWeekendsChk').addEventListener('change', async (e) => {
+    try {
+      await api.setSettings({ hideWeekends: e.target.checked });
+      state.hideWeekends = e.target.checked;
+      showToast(e.target.checked ? 'Weekend columns hidden.' : 'Weekend columns shown.');
+      if (state.view === 'calendar') drawCalGrid();
+    } catch (err) {
+      e.target.checked = !e.target.checked;
+      showToast(err.message, true);
+    }
+  });
   document.getElementById('addLocBtn').addEventListener('click', () => openLocationForm());
   document.getElementById('cleanupBtn').addEventListener('click', async () => {
     const sel = document.getElementById('cleanupAge');
@@ -828,6 +856,7 @@ window.addEventListener('appinstalled', () => {
   try {
     const s = await api.getSettings();
     state.currency = s.currency;
+    state.hideWeekends = Boolean(s.hideWeekends);
   } catch { /* server may not be ready yet – fall back to default currency */ }
   render();
 })();
